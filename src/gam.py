@@ -24,7 +24,7 @@ For more information, see http://git.io/gam
 """
 
 __author__ = u'Jay Lee <jay0lee@gmail.com>'
-__version__ = u'3.71'
+__version__ = u'3.72'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys, os, time, datetime, random, socket, csv, platform, re, base64, string, codecs, StringIO, subprocess, collections, mimetypes
@@ -316,6 +316,7 @@ MESSAGE_INVALID_JSON = u'The file {0} has an invalid format.'
 MESSAGE_NO_DISCOVERY_INFORMATION = u'No online discovery doc and {0} does not exist locally'
 MESSAGE_NO_PYTHON_SSL = u'You don\'t have the Python SSL module installed so we can\'t verify SSL Certificates. You can fix this by installing the Python SSL module or you can live on the edge and turn SSL validation off by creating a file named noverifyssl.txt in the same location as gam.exe / gam.py'
 MESSAGE_NO_TRANSFER_LACK_OF_DISK_SPACE = u'Cowardly refusing to perform migration due to lack of target drive space. Source size: {0}mb Target Free: {1}mb'
+MESSAGE_REFUSING_TO_DEPROVISION_DEVICES = u'Refusing to deprovision {0} devices because acknowledge_device_touch_requirement not specified.\nDeprovisioning a device means the device will have to be physically wiped and re-enrolled to be managed by your domain again.\nThis requires physical access to the device and is very time consuming to perform for each device.\nPlease add "acknowledge_device_touch_requirement" to the GAM command if you understand this and wish to proceed with the deprovision.\nPlease also be aware that deprovisioning can have an effect on your device license count.\nSee https://support.google.com/chrome/a/answer/3523633 for full details.'
 MESSAGE_REQUEST_COMPLETED_NO_FILES = u'Request completed but no results/files were returned, try requesting again'
 MESSAGE_REQUEST_NOT_COMPLETE = u'Request needs to be completed before downloading, current status is: {0}'
 MESSAGE_RESULTS_TOO_LARGE_FOR_GOOGLE_SPREADSHEET = u'Results are too large for Google Spreadsheets. Uploading as a regular CSV file.'
@@ -2367,7 +2368,7 @@ def doDeleteGuardian():
   guardianId = sys.argv[3]
   studentId = sys.argv[4]
   try:
-    callGAPI(croom.userProfiles().guardians(), u'delete', throw_reasons=[u'notFound'], studentId=studentId, guardianId=guardianId)
+    callGAPI(croom.userProfiles().guardians(), u'delete', throw_reasons=[u'forbidden', u'notFound'], studentId=studentId, guardianId=guardianId)
     print u'Deleted %s as a guardian of %s' % (guardianId, studentId)
   except googleapiclient.errors.HttpError:
     # See if there's a pending invitation
@@ -7359,41 +7360,68 @@ def doUpdateCros():
   else:
     devices = [deviceId,]
   i = 4
-  body = {}
+  update_body = {}
+  action_body = {}
+  ack_wipe = False
   while i < len(sys.argv):
-    if sys.argv[i].lower() == u'user':
-      body[u'annotatedUser'] = sys.argv[i + 1]
+    myarg = sys.argv[i].lower().replace(u'_', u'')
+    if myarg == u'user':
+      update_body[u'annotatedUser'] = sys.argv[i+1]
       i += 2
-    elif sys.argv[i].lower() == u'location':
-      body[u'annotatedLocation'] = sys.argv[i + 1]
+    elif myarg == u'location':
+      update_body[u'annotatedLocation'] = sys.argv[i+1]
       i += 2
-    elif sys.argv[i].lower() == u'notes':
-      body[u'notes'] = sys.argv[i + 1]
+    elif myarg == u'notes':
+      update_body[u'notes'] = sys.argv[i+1]
       i += 2
-    elif sys.argv[i].lower() == u'status':
-      body[u'status'] = sys.argv[i + 1].upper()
-      #if body[u'status'] not in [u'ACTIVE', u'DEPROVISIONED']:
-      #  print u'ERROR: status must be active or deprovisioned; got %s' % body[u'status']
-      #  sys.exit(2)
+    elif myarg in [u'tag', u'asset', u'assetid']:
+      update_body[u'annotatedAssetId'] = sys.argv[i+1]
       i += 2
-    elif sys.argv[i].lower() in [u'tag', u'asset', u'assetid']:
-      body[u'annotatedAssetId'] = sys.argv[i + 1]
-      #annotatedAssetId - Handle Asset Tag Field 2015-04-13
+    elif myarg in [u'ou', u'org']:
+      update_body[u'orgUnitPath'] = sys.argv[i+1]
+      if update_body[u'orgUnitPath'][0] != u'/':
+        update_body[u'orgUnitPath'] = u'/%s' % update_body[u'orgUnitPath']
       i += 2
-    elif sys.argv[i].lower() in [u'ou', u'org']:
-      body[u'orgUnitPath'] = sys.argv[i + 1]
-      if body[u'orgUnitPath'][0] != u'/':
-        body[u'orgUnitPath'] = u'/%s' % body[u'orgUnitPath']
+    elif myarg == u'action':
+      action = sys.argv[i+1].replace(u'_', u'').replace(u'-', u'').lower()
+      deprovisionReason = None
+      if action in [u'deprovisionsamemodelreplace', u'deprovisionsamemodelreplacement']:
+        action = u'deprovision'
+        deprovisionReason = u'same_model_replacement'
+      elif action in [u'deprovisiondifferentmodelreplace', u'deprovisiondifferentmodelreplacement']:
+        action = u'deprovision'
+        deprovisionReason = u'different_model_replacement'
+      elif action in [u'deprovisionretiringdevice']:
+        action = u'deprovision'
+        deprovisionReason = u'retiring_device'
+      elif action not in [u'disable', u'reenable']:
+        print u'ERROR: expected action of deprovision_same_model_replace, deprovision_different_model_replace, deprovision_retiring_device, disable or reenable, got %s' % action
+        sys.exit(2)
+      action_body = {u'action': action}
+      if deprovisionReason:
+        action_body[u'deprovisionReason'] = deprovisionReason
       i += 2
+    elif myarg == u'acknowledgedevicetouchrequirement':
+      ack_wipe = True
+      i += 1
     else:
       print u'ERROR: %s is not a valid argument for "gam update cros"' % sys.argv[i]
       sys.exit(2)
   i = 0
-  device_count = len(devices)
-  for this_device in devices:
-    i += 1
-    print u' updating %s (%s/%s)' % (this_device, i, device_count)
-    callGAPI(cd.chromeosdevices(), u'patch', deviceId=this_device, body=body, customerId=GC_Values[GC_CUSTOMER_ID])
+  count = len(devices)
+  if action_body:
+    if action_body[u'action'] == u'deprovision' and not ack_wipe:
+      stderrWarningMsg(MESSAGE_REFUSING_TO_DEPROVISION_DEVICES.format(count))
+      sys.exit(3)
+    for deviceId in devices:
+      i += 1
+      print u' performing action %s for %s (%s of %s)' % (action, deviceId, i, count)
+      callGAPI(cd.chromeosdevices(), function=u'action', customerId=GC_Values[GC_CUSTOMER_ID], resourceId=deviceId, body=action_body)
+  elif update_body:
+    for deviceId in devices:
+      i += 1
+      print u' updating %s (%s of %s)' % (deviceId, i, count)
+      callGAPI(service=cd.chromeosdevices(), function=u'patch', customerId=GC_Values[GC_CUSTOMER_ID], deviceId=deviceId, body=update_body)
 
 def doUpdateMobile():
   cd = buildGAPIObject(u'directory')
@@ -8856,7 +8884,7 @@ def doPrintUsers():
     elif myarg == u'todrive':
       todrive = True
       i += 1
-    elif myarg in [u'deleted_only', u'only_deleted']:
+    elif myarg in [u'deletedonly', u'onlydeleted']:
       deleted_only = True
       i += 1
     elif myarg == u'orderby':
