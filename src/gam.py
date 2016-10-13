@@ -75,7 +75,7 @@ GAM_INFO = u'GAM {0} - {1} / {2} / Python {3}.{4}.{5} {6} / {7} {8} /'.format(__
 GAM_RELEASES = u'https://github.com/taers232c/{0}/releases'.format(GAM)
 GAM_WIKI = u'https://github.com/jay0lee/GAM/wiki'
 GAM_WIKI_CREATE_CLIENT_SECRETS = GAM_WIKI+u'/CreatingClientSecretsFile'
-GAM_APPSPOT = u'https://gam-update.appspot.com'
+GAM_APPSPOT = u'https://gamb-update.appspot.com'
 GAM_APPSPOT_LATEST_VERSION = GAM_APPSPOT+u'/latest-version.txt?v='+__version__
 GAM_APPSPOT_LATEST_VERSION_ANNOUNCEMENT = GAM_APPSPOT+u'/latest-version-announcement.txt?v='+__version__
 
@@ -430,7 +430,7 @@ def indentMultiLineText(message, n=0):
   return message.replace(u'\n', u'\n{0}'.format(u' '*n)).rstrip()
 
 def showUsage():
-  doGAMVersion()
+  doVersion(checkForCheck=False)
   print u'''
 Usage: gam [OPTIONS]...
 
@@ -826,7 +826,7 @@ def doGAMCheckForUpdates(forceCheck=False):
   except (urllib2.HTTPError, urllib2.URLError):
     return
 
-def doGAMVersion():
+def doVersion(checkForCheck=True):
   import struct
   print u'GAM {0} - {1}\n{2}\nPython {3}.{4}.{5} {6}-bit {7}\ngoogle-api-python-client {8}\n{9} {10}\nPath: {11}'.format(__version__, GAM_URL,
                                                                                                                          __author__,
@@ -835,6 +835,16 @@ def doGAMVersion():
                                                                                                                          googleapiclient.__version__,
                                                                                                                          platform.platform(), platform.machine(),
                                                                                                                          GM_Globals[GM_GAM_PATH])
+  if checkForCheck:
+    i = 2
+    while i < len(sys.argv):
+      myarg = sys.argv[i].lower().replace(u'_', u'')
+      if myarg == u'check':
+        doGAMCheckForUpdates(forceCheck=True)
+        i += 1
+      else:
+        print u'ERROR: %s is not a valid argument for "gam version"' % sys.argv[i]
+        sys.exit(2)
 
 def handleOAuthTokenError(e, soft_errors):
   if e.message in OAUTH2_TOKEN_ERRORS:
@@ -10575,7 +10585,7 @@ def ProcessGAMCommand(args):
       run_batch(items)
       sys.exit(0)
     elif command == u'version':
-      doGAMVersion()
+      doVersion()
       sys.exit(0)
     elif command == u'create':
       argument = sys.argv[2].lower()
