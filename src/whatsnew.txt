@@ -1,3 +1,38 @@
+GAM 3.72.01
+
+Note!!! Functionality change.
+Changed command gam show filetree to show only files owned by the user by default; this makes it consistent with gam show filelist.
+To get the prior behavior, add the anyowner argument.
+    gam <UserTypeEntity> show filetree [anyowner] [select <DriveFileEntity>] (orderby <DriveOrderByFieldName> [ascending|descending])*
+
+Added invitations argument to gam delete guardian so that only a pending invitation for a guardian is cancelled.
+    gam delete guardian|guardians <GuardianItem> <StudentItem> [invitations]
+
+Added a command to cancel guardian invitations by invitation ID.
+    gam cancel guardianinvitation|guardianinvitations <GuardianInvitationID> <StudentItem>
+
+Added arguments to gam update user to enable clearing entire schemas or schema fields.
+    gam update user <UserItem> <UserAttributes>+ [clearschema <SchemaName>] [clearschema <SchemaName>.<FieldName>]
+
+Added support for specifying type in multi-valued schemas. Custom schema fields can be single-valued or multi-valued;
+Gam has always supported both but has not supported the type characteristic within a multi-valued schema field.
+In gam create/update user, schema fields are now specified as:
+    <SchemaName>.<FieldName> [multivalued [type work|home|other|(custom <CustomType>)]] <String>
+Examples:
+TestSchema.SVField <String> - value is <String>
+TestSchema.MVField <String> - type is work (default), value is <String>
+TestSchema.MVField type home <String> - type is home, value is <String>
+TestSchema.MVField type custom <CustomType> <String> - type is custom, customType is <CustomType>, value is <String>
+Compatability note: In the unlikely case that you are currently setting a multi-valued schema field with the value "type",
+i.e., TestSchema.MVField type, you will have to change this to TestSchema.MVField type work type.
+
+Added argument to gam print|show filelist to allow specification of output ordering.
+    gam <UserTypeEntity> print|show filelist [todrive] [anyowner] [query <QueryDriveFile>] [fullquery <QueryDriveFile>]
+	[allfields|<DriveFieldName>*] (orderby <DriveOrderByFieldName> [ascending|descending])*
+
+Added argument to gam show filetree to allow specification of output ordering.
+    gam <UserTypeEntity> show filetree [orderby <DriveOrderByFieldName> [ascending|descending]]*
+
 GAM 3.72
 - Chrome OS device actions, disable, re-enable and deprovision devices.
 - (beta) MSI Windows build
