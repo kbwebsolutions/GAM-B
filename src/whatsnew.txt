@@ -1,4 +1,4 @@
-GAM 3.72.01
+GAM 3.73.00
 
 Note!!! Functionality change.
 Changed command gam show filetree to show only files owned by the user by default; this makes it consistent with gam show filelist.
