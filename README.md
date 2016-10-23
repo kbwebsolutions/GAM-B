@@ -1,28 +1,28 @@
-[GAM]
+[Gam]
 ============================
-[GAM] is a free, open source command line tool for Google G Suite Administrators to manage domain and user settings quickly and easily.
+[Gam] is a free, open source command line tool for Google G Suite Administrators to manage domain and user settings quickly and easily.
 
 Downloads
 ---------
-You can download the current [GAM] release from the [GitHub Releases] page.
+You can download the current [Gam] release from the [GitHub Releases] page.
 
 Documentation
 ------------------
-The [GAM] documentation is hosted in the [GitHub Wiki]
+The [Gam] documentation is hosted in the [GitHub Wiki]
 
 Mailing List / Discussion group
 -------------------------------
-The [GAM] mailing list / discussion group is hosted on [Google Groups].  You can join the list and interact via email, or just post from the web itself.
+The [Gam] mailing list / discussion group is hosted on [Google Groups].  You can join the list and interact via email, or just post from the web itself.
 
 Source Repository
 -----------------
-The official [GAM] source repository is on [GitHub] in the master branch.
+The official [Gam] source repository is on [GitHub] in the master branch.
 
 Author
 ------
-[GAM] is maintained by <a href="mailto:ross.scroggs@gmail.com">Ross Scroggs</a>.
+[Gam] is maintained by <a href="mailto:ross.scroggs@gmail.com">Ross Scroggs</a>.
 
-[GAM] GAM-B
+[Gam] GAM-B
 [GitHub Releases]: https://github.com/taers232c/GAM-B/releases
 [GitHub]: https://github.com/taers232c/GAM-B/tree/master
 [GitHub Wiki]: https://github.com/jay0lee/GAM/wiki/
