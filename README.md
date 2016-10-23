@@ -22,7 +22,7 @@ Author
 ------
 [Gam] is maintained by <a href="mailto:ross.scroggs@gmail.com">Ross Scroggs</a>.
 
-[Gam] GAM-B
+[Gam]: GAM-B
 [GitHub Releases]: https://github.com/taers232c/GAM-B/releases
 [GitHub]: https://github.com/taers232c/GAM-B/tree/master
 [GitHub Wiki]: https://github.com/jay0lee/GAM/wiki/
