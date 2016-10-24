@@ -692,7 +692,7 @@ gam <UserTypeEntity> print|show filelist [todrive] [anyowner] [query <QueryDrive
 
 gam <UserTypeEntity> show fileinfo <DriveFileID> [allfields|<DriveFieldName>*]
 gam <UserTypeEntity> show filerevisions <DriveFileID>
-gam <UserTypeEntity> show filetree [anyowner](orderby <DriveOrderByFieldName> [ascending|descending])*
+gam <UserTypeEntity> show filetree [anyowner] (orderby <DriveOrderByFieldName> [ascending|descending])*
 
 gam <UserTypeEntity> add drivefile [drivefilename <DriveFileName>] <DriveFileAddAttributes>*
 gam <UserTypeEntity> update drivefile (id <DriveFileID)|(drivefilename <DriveFileName>)|(query <QueryDriveFile) [copy] [newfilename <DriveFileName>] <DriveFileUpdateAttributes>*

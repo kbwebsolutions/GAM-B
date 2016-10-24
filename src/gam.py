@@ -3995,7 +3995,7 @@ def printDriveFileList(users):
         else:
           orderByList.append(u'{0} desc'.format(fieldName))
       else:
-        print u'ERROR: orderby must be one of {0}; got {1}'.format(u', '.join(DRIVEFILE_ORDERBY_CHOICES_MAP), fieldName)
+        print u'ERROR: orderby must be one of {0}; got {1}'.format(u', '.join(sorted(DRIVEFILE_ORDERBY_CHOICES_MAP.keys())), fieldName)
         sys.exit(2)
     elif myarg == u'query':
       query += u' and %s' % sys.argv[i+1]
@@ -4177,7 +4177,7 @@ def showDriveFileTree(users):
         else:
           orderByList.append(u'{0} desc'.format(fieldName))
       else:
-        print u'ERROR: orderby must be one of {0}; got {1}'.format(u', '.join(DRIVEFILE_ORDERBY_CHOICES_MAP), fieldName)
+        print u'ERROR: orderby must be one of {0}; got {1}'.format(u', '.join(sorted(DRIVEFILE_ORDERBY_CHOICES_MAP.keys())), fieldName)
         sys.exit(2)
     else:
       print u'ERROR: %s is not a valid argument for "gam <users> show filetree"' % myarg
