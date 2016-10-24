@@ -6385,7 +6385,7 @@ def getUserAttributes(i, cd, updateCmd=False):
       schemaName = sn_fn.strip()
       if schemaName:
         return (schemaName, None)
-    print u'ERROR: %s is not a valid custom schema.field name.' % sys.argv[i+1]
+    print u'ERROR: %s is not a valid custom schema.field name.' % sn_fn
     sys.exit(2)
 
   if updateCmd:
