@@ -113,7 +113,7 @@ If an item contains spaces, it should be surrounded by " or '.
 <RoleAssignmentID> ::= <String>
 <SchemaName> ::= <String>
 <Section> ::= <String>
-<StudentID> ::= <String>
+<StudentItem> ::= <EmailAddress>|<UniqueID>|<String>
 <Timezone> ::= <String>
 <Title> ::= <String>
 <URI> ::= <String>
@@ -469,6 +469,13 @@ gam help
 gam batch <FileName>|- [charset <Charset>]
 gam csv <FileName>|- [charset <Charset>] gam <GAM argument list>
 
+# You can make substitutions in <GAMArgumentList> with values from the CSV file.
+# An argument containing exactly ~xxx is replaced by the value of field xxx from the CSV file
+# An argument containing instances of ~~xxx~~ has xxx replaced by the value of field xxx from the CSV file
+
+# Example: gam csv Users.csv gam update user '~primaryEmail' address type work unstructured '~~Street~~, ~~City~~, ~~State~~ ~~ZIP~~'
+# Each user (~primaryEmail, e.g. foo@bar.com) would have their work address updated
+
 gam oauth|oauth2 create|request
 gam oauth|oauth2 delete|revoke
 gam oauth|oauth2 info|verify [<AccessToken>]
@@ -564,23 +571,22 @@ gam print mobile [todrive] [query <QueryMobile>] [basic|full] [orderby <MobileOr
 
 gam create group <EmailAddress> <GroupAttributes>*
 gam update group <GroupItem> [admincreated <Boolean>] [email <EmailAddress>] <GroupAttributes>*
-gam update group <GroupItem> add [owner|manager|member] [notsuspended] <UserTypeEntity>
-gam update group <GroupItem> delete|remove [owner|manager|member] <UserTypeEntity>
-gam update group <GroupItem> sync [owner|manager|member] [notsuspended] <UserTypeEntity>
-gam update group <GroupItem> update [owner|manager|member] <UserTypeEntity>
+gam update group <GroupItem> add [member|manager|owner] [notsuspended] <UserTypeEntity>
+gam update group <GroupItem> delete|remove [member|manager|owner] <UserTypeEntity>
+gam update group <GroupItem> sync [member|manager|owner] [notsuspended] <UserTypeEntity>
+gam update group <GroupItem> update [member|manager|owner] <UserTypeEntity>
 gam delete group <GroupItem>
 gam info group <GroupItem> [nousers] [noaliases] [groups]
-gam update group <GroupItem> clear [owner] [manager] [member]
+gam update group <GroupItem> clear [member] [manager] [owner]
 
 gam print groups [todrive] ([domain <DomainName>] [member <UserItem>])
 	[maxresults <Number>] [delimiter <String>]
-	[members] [owners] [managers] [settings] <GroupFieldName>* [fields <GroupFieldNameList>]
-
+	[members] [managers] [owners] [settings] <GroupFieldName>* [fields <GroupFieldNameList>]
 
 gam print group-members|groups-members [todrive] ([domain <DomainName>] [member <UserItem>])|[group <GroupItem>]
 	[membernames] [fields <MembersFieldNameList>]
 
-gam print license|licenses|licence|licences [todrive] [products|product <ProductIDList>] [skus|sku <SKUIDList>]
+gam print license|licenses|licence|licences [todrive] [(products|product <ProductIDList>)|(skus|sku <SKUIDList>)]
 
 gam update notification|notifications [(id all)|(id <NotificationID>)*] unread|read
 gam delete notification|notifications [(id all)|(id <NotificationID>)*]
@@ -781,8 +787,8 @@ gam <UserTypeEntity> show imap|imap4
 gam <UserTypeEntity> pop|pop3 <Boolean> [for allmail|newmail|mailfromnowon|fromnowown] [action keep|leaveininbox|archive|delete|trash|markread]
 gam <UserTypeEntity> show pop|pop3
 
-gam <UserTypeEntity> [add] sendas <EmailAddress> <Name> [signature|sig <String>|(file <FileName> [charset <CharSet>]) (replace <Tag> <String>)* [replyto <EmailAddress>] [default] [treatasalias <Boolean>]
-gam <UserTypeEntity> update sendas <EmailAddress> [name <Name>] [signature|sig <String>|(file <FileName> [charset <CharSet>])] (replace <Tag> <String>)* [replyto <EmailAddress>] [default] [treatasalias <Boolean>]
+gam <UserTypeEntity> [add] sendas <EmailAddress> <Name> [signature|sig <String>|(file <FileName> [charset <CharSet>]) (replace <Tag> <String>)*] [replyto <EmailAddress>] [default] [treatasalias <Boolean>]
+gam <UserTypeEntity> update sendas <EmailAddress> [name <Name>] [signature|sig <String>|(file <FileName> [charset <CharSet>]) (replace <Tag> <String>)*] [replyto <EmailAddress>] [default] [treatasalias <Boolean>]
 gam <UserTypeEntity> delete sendas <EmailAddress>
 gam <UserTypeEntity> show sendas [format]
 gam <UserTypeEntity> info sendas <EmailAddress> [format]
