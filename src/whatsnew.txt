@@ -1,3 +1,11 @@
+GAM 3.73.02
+
+Handle newlines in CrOS notes field.
+
+GAM 3.73.01
+
+Cleaned up processing of guardian invitation cancellations.
+
 GAM 3.73.00
 
 Note!!! Functionality change.
