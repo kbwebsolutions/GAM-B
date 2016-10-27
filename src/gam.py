@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'3.73.02'
+__version__ = u'3.73.03'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -8310,7 +8310,7 @@ def printShowTokens(i, entityType, users, csvFormat):
           continue
         for token in results:
           row = {u'user': user, u'scopes': u' '.join(token.get(u'scopes', []))}
-          for item in [u'displayText', u'anonymous', u'nativeApp', u'userKey']:
+          for item in [u'clientId', u'displayText', u'anonymous', u'nativeApp', u'userKey']:
             row[item] = token.get(item, u'')
           csvRows.append(row)
     except (GAPI_notFound, GAPI_userNotFound):
