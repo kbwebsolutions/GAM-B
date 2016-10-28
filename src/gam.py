@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'3.73.03'
+__version__ = u'3.80.00'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -1115,7 +1115,6 @@ API_VER_MAPPING = {
   u'datatransfer': u'datatransfer_v1',
   u'directory': u'directory_v1',
   u'drive': u'v2',
-  u'email-audit': u'v1',
   u'email-settings': u'v2',
   u'gmail': u'v1',
   u'groupssettings': u'v1',
