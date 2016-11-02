@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'3.80.00'
+__version__ = u'3.80.01'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -439,7 +439,7 @@ def indentMultiLineText(message, n=0):
   return message.replace(u'\n', u'\n{0}'.format(u' '*n)).rstrip()
 
 def showUsage():
-  doGAMVersion(checkForCheck=False)
+  doGAMVersion(checkForArgs=False)
   print u'''
 Usage: gam [OPTIONS]...
 
@@ -857,25 +857,33 @@ def doGAMCheckForUpdates(forceCheck=False):
   except (urllib2.HTTPError, urllib2.URLError):
     return
 
-def doGAMVersion(checkForCheck=True):
-  import struct
-  print u'GAM {0} - {1}\n{2}\nPython {3}.{4}.{5} {6}-bit {7}\ngoogle-api-python-client {8}\n{9} {10}\nPath: {11}'.format(__version__, GAM_URL,
-                                                                                                                         __author__,
-                                                                                                                         sys.version_info[0], sys.version_info[1], sys.version_info[2],
-                                                                                                                         struct.calcsize(u'P')*8, sys.version_info[3],
-                                                                                                                         googleapiclient.__version__,
-                                                                                                                         platform.platform(), platform.machine(),
-                                                                                                                         GM_Globals[GM_GAM_PATH])
-  if checkForCheck:
+def doGAMVersion(checkForArgs=True):
+  force_check = False
+  simple = False
+  if checkForArgs:
     i = 2
     while i < len(sys.argv):
       myarg = sys.argv[i].lower().replace(u'_', u'')
       if myarg == u'check':
-        doGAMCheckForUpdates(forceCheck=True)
+        force_check = True
+        i += 1
+      elif myarg == u'simple':
+        simple = True
         i += 1
       else:
         print u'ERROR: %s is not a valid argument for "gam version"' % sys.argv[i]
         sys.exit(2)
+  if simple:
+    sys.stdout.write(__version__)
+    return
+  import struct
+  version_data = u'GAM {0} - {1}\n{2}\nPython {3}.{4}.{5} {6}-bit {7}\ngoogle-api-python-client {8}\n{9} {10}\nPath: {11}'
+  print version_data.format(__version__, GAM_URL, __author__, sys.version_info[0],
+                            sys.version_info[1], sys.version_info[2], struct.calcsize(u'P')*8,
+                            sys.version_info[3], googleapiclient.__version__, platform.platform(),
+                            platform.machine(), GM_Globals[GM_GAM_PATH])
+  if force_check:
+    doGAMCheckForUpdates(forceCheck=True)
 
 def handleOAuthTokenError(e, soft_errors):
   if e.message in OAUTH2_TOKEN_ERRORS:
