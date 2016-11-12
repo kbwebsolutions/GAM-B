@@ -6,7 +6,7 @@
       Language="1033"
       Version="$(env.GAMVERSION)"
       Manufacturer="Ross Scroggs - ross.scroggs@gmail.com"
-      UpgradeCode="15C5FD61-B04C-4E04-A26D-CD8424C19D9F">
+      UpgradeCode="88FBDB33-97D8-4CB1-BC4C-B9A1626C893E">
     <Package
         InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
 
@@ -42,20 +42,20 @@
         Id="ProductComponents"
         Directory="INSTALLFOLDER"
         Source="gam-64">
-      <Component Id="gam_exe" Guid="886abc07-73c5-4acc-9f71-58daf62aabc1">
+      <Component Id="gam_exe" Guid="984cdc5f-1093-4ad9-950c-c71a0a96eda4">
         <File Name="gam.exe" KeyPath="yes" />
         <Environment Id="PATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="yes" Part="last" Action="set" System="yes" />
       </Component>
-      <Component Id="license" Guid="7a15de2e-fb91-4d0a-b8bf-c8b19c68f569">
+      <Component Id="license" Guid="c2188eea-c2f3-40f3-bbdb-2d3ac425077b">
         <File Name="LICENSE" KeyPath="yes" />
       </Component>
-      <Component Id="whatsnew_txt" Guid="6aa9863c-90d9-412f-9b73-fda82549a950">
+      <Component Id="whatsnew_txt" Guid="7b226c53-198c-449e-87f2-595ea017b0f1">
         <File Name="whatsnew.txt" KeyPath="yes" />
       </Component>
-      <Component Id="gam_setup_bat" Guid="ef01f93a-4b50-488a-9c04-ec5e13e66218">
+      <Component Id="gam_setup_bat" Guid="9143ec28-7a90-466b-92d5-6cb818ecdcec">
         <File Name="gam-setup.bat" KeyPath="yes" />
       </Component>
-      <Component Id="GamCommands_txt" Guid="58ff9c45-a7c9-4e22-8845-a9a92610c1f3">
+      <Component Id="GamCommands_txt" Guid="cef7ce28-4349-49c7-8098-acb733bfa7b8">
         <File Name="GamCommands.txt" KeyPath="yes" />
       </Component>
     </ComponentGroup>
