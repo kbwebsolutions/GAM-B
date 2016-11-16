@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.03.06'
+__version__ = u'4.03.07'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -90,7 +90,6 @@ GAM_INFO = u'GAM {0} - {1} / {2} / Python {3}.{4}.{5} {6} / {7} {8} /'.format(__
                                                                               platform.platform(), platform.machine())
 GAM_RELEASES = u'https://github.com/taers232c/{0}/releases'.format(GAM)
 GAM_WIKI = u'https://github.com/jay0lee/GAM/wiki'
-GAM_WIKI_CREATE_CLIENT_SECRETS = GAM_WIKI+u'/CreatingClientSecretsFile'
 GAM_ALL_RELEASES = u'https://api.github.com/repos/taers232c/'+GAM+u'/releases'
 GAM_LATEST_RELEASE = GAM_ALL_RELEASES+u'/latest'
 
@@ -338,9 +337,9 @@ MESSAGE_REFUSING_TO_DEPROVISION_DEVICES = u'Refusing to deprovision {0} devices 
 MESSAGE_REQUEST_COMPLETED_NO_FILES = u'Request completed but no results/files were returned, try requesting again'
 MESSAGE_REQUEST_NOT_COMPLETE = u'Request needs to be completed before downloading, current status is: {0}'
 MESSAGE_RESULTS_TOO_LARGE_FOR_GOOGLE_SPREADSHEET = u'Results are too large for Google Spreadsheets. Uploading as a regular CSV file.'
-MESSAGE_SERVICE_NOT_APPLICABLE = u'Service not applicable for this address: {0}'
-MESSAGE_WIKI_INSTRUCTIONS_OAUTH2SERVICE_JSON = u'Please follow the instructions at this site to setup a Service Account.'
-MESSAGE_OAUTH2SERVICE_JSON_INVALID = u'The file {0} is missing required keys (client_email, client_id or private_key).'
+MESSAGE_SERVICE_NOT_APPLICABLE = u'Service not applicable for this address: {0}. Please make sure service is enabled for user and run\n\ngam user <user> check serviceaccount\n\nfor further instructions'
+MESSAGE_INSTRUCTIONS_OAUTH2SERVICE_JSON = u'Please run\n\ngam create project\ngam user <user> check serviceaccount\n\nto create and configure a service account.'
+MESSAGE_OAUTH2SERVICE_JSON_INVALID = u'The file {0} is missing required keys (client_email, client_id or private_key). Please remove it and recreate with the commands:\n\ngam create project\ngam user <user> check serviceaccount'
 # oauth errors
 OAUTH2_TOKEN_ERRORS = [u'access_denied', u'unauthorized_client: Unauthorized client or scope in request.', u'access_denied: Requested client not authorized.',
                        u'invalid_grant: Not a valid email.', u'invalid_grant: Invalid email or User ID', u'invalid_grant: Bad Request',
@@ -903,8 +902,7 @@ def getSvcAcctCredentials(scopes, act_as):
     if not GM_Globals[GM_OAUTH2SERVICE_JSON_DATA]:
       json_string = readFile(GC_Values[GC_OAUTH2SERVICE_JSON], continueOnError=True, displayError=True)
       if not json_string:
-        printLine(MESSAGE_WIKI_INSTRUCTIONS_OAUTH2SERVICE_JSON)
-        printLine(GAM_WIKI_CREATE_CLIENT_SECRETS)
+        printLine(MESSAGE_INSTRUCTIONS_OAUTH2SERVICE_JSON)
         systemErrorExit(6, None)
       GM_Globals[GM_OAUTH2SERVICE_JSON_DATA] = json.loads(json_string)
     credentials = oauth2client.service_account.ServiceAccountCredentials.from_json_keyfile_dict(GM_Globals[GM_OAUTH2SERVICE_JSON_DATA], scopes)
@@ -914,8 +912,7 @@ def getSvcAcctCredentials(scopes, act_as):
     GM_Globals[GM_OAUTH2SERVICE_ACCOUNT_CLIENT_ID] = serialization_data[u'client_id']
     return credentials
   except (ValueError, KeyError):
-    printLine(MESSAGE_WIKI_INSTRUCTIONS_OAUTH2SERVICE_JSON)
-    printLine(GAM_WIKI_CREATE_CLIENT_SECRETS)
+    printLine(MESSAGE_INSTRUCTIONS_OAUTH2SERVICE_JSON)
     invalidJSONExit(GC_Values[GC_OAUTH2SERVICE_JSON])
 
 def waitOnFailure(n, retries, errMsg):
@@ -1159,9 +1156,15 @@ def readDiscoveryFile(api_version):
   except ValueError:
     invalidJSONExit(disc_file)
 
-def getClientAPIversionHttpService(api):
+def getOauth2TxtStorageCredentials():
   storage = oauth2client.file.Storage(GC_Values[GC_OAUTH2_TXT])
-  credentials = storage.get()
+  try:
+    return (storage, storage.get())
+  except (KeyError, ValueError):
+    return (storage, None)
+
+def getClientAPIversionHttpService(api):
+  storage, credentials = getOauth2TxtStorageCredentials()
   if not credentials or credentials.invalid:
     doRequestOAuth()
     credentials = storage.get()
@@ -7705,8 +7708,7 @@ def doGetUserInfo(user_email=None):
       user_email = sys.argv[3]
       i = 4
     else:
-      storage = oauth2client.file.Storage(GC_Values[GC_OAUTH2_TXT])
-      credentials = storage.get()
+      storage, credentials = getOauth2TxtStorageCredentials()
       if credentials is None or credentials.invalid:
         doRequestOAuth()
         credentials = storage.get()
@@ -9243,18 +9245,22 @@ def doPrintGroups():
         group[u'Owners'] = memberDelimiter.join(allOwners)
     if getSettings and not GroupIsAbuseOrPostmaster(groupEmail):
       sys.stderr.write(u" Retrieving Settings for group %s (%s/%s)...\r\n" % (groupEmail, i, count))
-      settings = callGAPI(gs.groups(), u'get',
-                          retry_reasons=[u'serviceLimit'],
-                          groupUniqueId=groupEmail, fields=gsfields)
-      for key in settings:
-        if key in [u'email', u'name', u'description', u'kind', u'etag']:
-          continue
-        setting_value = settings[key]
-        if setting_value is None:
-          setting_value = u''
-        if key not in titles:
-          addTitleToCSVfile(key, titles)
-        group[key] = setting_value
+      try:
+        settings = callGAPI(gs.groups(), u'get',
+                            retry_reasons=[u'serviceLimit'],
+                            throw_reasons=[u'invalid'],
+                            groupUniqueId=groupEmail, fields=gsfields)
+        for key in settings:
+          if key in [u'email', u'name', u'description', u'kind', u'etag']:
+            continue
+          setting_value = settings[key]
+          if setting_value is None:
+            setting_value = u''
+          if key not in titles:
+            addTitleToCSVfile(key, titles)
+          group[key] = setting_value
+      except googleapiclient.errors.HttpError:
+        sys.stderr.write(u" Settings unavailable for group %s (%s/%s)...\r\n" % (groupEmail, i, count))
     csvRows.append(group)
   writeCSVfile(csvRows, titles, u'Groups', todrive)
 
@@ -9937,8 +9943,7 @@ def OAuthInfo():
   if len(sys.argv) > 3:
     access_token = sys.argv[3]
   else:
-    storage = oauth2client.file.Storage(GC_Values[GC_OAUTH2_TXT])
-    credentials = storage.get()
+    storage, credentials = getOauth2TxtStorageCredentials()
     if credentials is None or credentials.invalid:
       doRequestOAuth()
       credentials = storage.get()
@@ -9964,13 +9969,14 @@ def OAuthInfo():
     print u'Google Apps Admin: Unknown'
 
 def doDeleteOAuth():
-  storage = oauth2client.file.Storage(GC_Values[GC_OAUTH2_TXT])
-  credentials = storage.get()
+  _, credentials = getOauth2TxtStorageCredentials()
+  if credentials is None or credentials.invalid:
+    os.remove(GC_Values[GC_OAUTH2_TXT])
+    return
   try:
     credentials.revoke_uri = oauth2client.GOOGLE_REVOKE_URI
   except AttributeError:
     systemErrorExit(1, u'Authorization doesn\'t exist')
-  http = httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL])
   sys.stderr.write(u'This OAuth token will self-destruct in 3...')
   time.sleep(1)
   sys.stderr.write(u'2...')
@@ -9979,7 +9985,7 @@ def doDeleteOAuth():
   time.sleep(1)
   sys.stderr.write(u'boom!\n')
   try:
-    credentials.revoke(http)
+    credentials.revoke(httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL]))
   except oauth2client.client.TokenRevokeError as e:
     stderrErrorMsg(e.message)
     os.remove(GC_Values[GC_OAUTH2_TXT])
@@ -10112,18 +10118,10 @@ def doRequestOAuth(login_hint=None):
     scopes.insert(0, u'email') # Email Display Scope, always included
     return (True, u'')
 
-  MISSING_CLIENT_SECRETS_MESSAGE = u"""Please configure OAuth 2.0
+  MISSING_CLIENT_SECRETS_MESSAGE = u'''To use GAM you need to create an API project. Please run:
 
-To make GAM run you will need to populate the {0} file found at:
-
-{1}
-
-with information from the APIs Console <https://console.developers.google.com>.
-
-See this site for instructions:
-{2}
-
-""".format(FN_CLIENT_SECRETS_JSON, GC_Values[GC_CLIENT_SECRETS_JSON], GAM_WIKI_CREATE_CLIENT_SECRETS)
+gam create project
+'''
 
   cs_data = readFile(GC_Values[GC_CLIENT_SECRETS_JSON], mode=u'rb', continueOnError=True, displayError=True, encoding=None)
   if not cs_data:
@@ -10201,9 +10199,9 @@ See this site for instructions:
   flow = oauth2client.client.OAuth2WebServerFlow(client_id=client_id,
                                                  client_secret=client_secret, scope=scopes, redirect_uri=oauth2client.client.OOB_CALLBACK_URN,
                                                  user_agent=GAM_INFO, access_type=u'offline', response_type=u'code', login_hint=login_hint)
-  storage = oauth2client.file.Storage(GC_Values[GC_OAUTH2_TXT])
-  flags = cmd_flags(noLocalWebserver=GC_Values[GC_NO_BROWSER])
+  storage, _ = getOauth2TxtStorageCredentials()
   http = httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL])
+  flags = cmd_flags(noLocalWebserver=GC_Values[GC_NO_BROWSER])
   try:
     oauth2client.tools.run_flow(flow=flow, storage=storage, flags=flags, http=http)
   except httplib2.CertificateValidationUnsupported:
