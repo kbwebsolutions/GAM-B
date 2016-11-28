@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.03.11'
+__version__ = u'4.03.12'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -505,14 +505,14 @@ def getCharSet(i):
     return (i, GC_Values.get(GC_CHARSET, GM_Globals[GM_SYS_ENCODING]))
   return (i+2, sys.argv[i+1])
 
-def integerLimits(minVal, maxVal):
+def integerLimits(minVal, maxVal, item=u'integer'):
   if (minVal is not None) and (maxVal is not None):
-    return u'integer {0}<=x<={1}'.format(minVal, maxVal)
+    return u'{0} {1}<=x<={2}'.format(item, minVal, maxVal)
   if minVal is not None:
-    return u'integer x>={0}'.format(minVal)
+    return u'{0} x>={1}'.format(item, minVal)
   if maxVal is not None:
-    return u'integer x<={0}'.format(maxVal)
-  return u'integer x'
+    return u'{0} x<={1}'.format(item, maxVal)
+  return u'{0} x'.format(item)
 
 def removeCourseIdScope(courseId):
   if courseId.startswith(u'd:'):
@@ -542,16 +542,19 @@ def getCourseAlias(i):
   print u'ERROR: expected a <CourseAlias>'
   sys.exit(2)
 
-def getString(i, item, emptyOK=False, optional=False):
+def getString(i, item, optional=False, minLen=1, maxLen=None):
   if i < len(sys.argv):
     argstr = sys.argv[i]
     if argstr:
-      return argstr
-    if emptyOK or optional:
+      if (len(argstr) >= minLen) and ((maxLen is None) or (len(argstr) <= maxLen)):
+        return argstr
+      print u'ERROR: expected <{0} for {1}>'.format(integerLimits(minLen, maxLen, u'string length'), item)
+      sys.exit(2)
+    if optional or (minLen == 0):
       return u''
     print u'ERROR: expected a Non-empty <{0}>'.format(item)
     sys.exit(2)
-  elif  optional:
+  elif optional:
     return u''
   print u'ERROR: expected a <{0}>'.format(item)
   sys.exit(2)
@@ -559,7 +562,7 @@ def getString(i, item, emptyOK=False, optional=False):
 YYYYMMDD_FORMAT = u'%Y-%m-%d'
 YYYYMMDD_FORMAT_REQUIRED = u'yyyy-mm-dd'
 
-def getYYYYMMDD(i, emptyOK=False, returnTimeStamp=False):
+def getYYYYMMDD(i, minLen=1, returnTimeStamp=False):
   if i < len(sys.argv):
     argstr = sys.argv[i].strip()
     if argstr:
@@ -571,7 +574,7 @@ def getYYYYMMDD(i, emptyOK=False, returnTimeStamp=False):
       except ValueError:
         print u'ERROR: expected a <{0}>; got {1}'.format(YYYYMMDD_FORMAT_REQUIRED, argstr)
         sys.exit(2)
-    elif emptyOK:
+    elif minLen == 0:
       return u''
   print u'ERROR: expected a <{0}>'.format(YYYYMMDD_FORMAT_REQUIRED)
   sys.exit(2)
@@ -5139,7 +5142,7 @@ def _processSignature(tagReplacements, signature, html):
 def getSendAsAttributes(i, myarg, body, tagReplacements, command):
   if myarg == u'replace':
     matchTag = getString(i+1, u'Tag')
-    matchReplacement = getString(i+2, u'String', emptyOK=True)
+    matchReplacement = getString(i+2, u'String', minLen=0)
     tagReplacements[matchTag] = matchReplacement
     i += 3
   elif myarg == u'name':
@@ -6233,7 +6236,7 @@ def doSignature(users):
     i, encoding = getCharSet(i+2)
     signature = readFile(filename, encoding=encoding)
   else:
-    signature = getString(i, u'String', emptyOK=True)
+    signature = getString(i, u'String', minLen=0)
     i += 1
   body = {}
   html = False
@@ -6308,7 +6311,7 @@ def doVacation(users):
         message = readFile(filename, encoding=encoding)
       elif myarg == u'replace':
         matchTag = getString(i+1, u'Tag')
-        matchReplacement = getString(i+2, u'String', emptyOK=True)
+        matchReplacement = getString(i+2, u'String', minLen=0)
         tagReplacements[matchTag] = matchReplacement
         i += 3
       elif myarg == u'html':
