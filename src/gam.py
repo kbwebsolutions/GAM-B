@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.03.12'
+__version__ = u'4.03.14'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -10289,7 +10289,7 @@ def run_batch(items):
       pool = Pool(processes=num_worker_threads)
       sys.stderr.write(u'done with commit-batch\n')
       continue
-    pool.apply_async(ProcessGAMCommand, [item])
+    pool.apply_async(ProcessGAMCommandNoQueue, [item])
   pool.close()
   pool.join()
 
@@ -10359,6 +10359,16 @@ def processSubFields(GAM_argv, row, subFields):
     argv[GAM_argvI] += oargv[pos:]
     argv[GAM_argvI] = argv[GAM_argvI].encode(GM_Globals[GM_SYS_ENCODING])
   return argv
+
+def resetDefaultEncodingToUTF8():
+  if sys.getdefaultencoding().upper() != u'UTF-8':
+    reload(sys)
+    if hasattr(sys, u'setdefaultencoding'):
+      sys.setdefaultencoding(u'UTF-8')
+
+def ProcessGAMCommandNoQueue(args):
+  resetDefaultEncodingToUTF8()
+  ProcessGAMCommand(args)
 
 # Process GAM command
 def ProcessGAMCommand(args):
@@ -11057,13 +11067,8 @@ if sys.platform.startswith('win'):
 
 # Run from command line
 if __name__ == "__main__":
+  resetDefaultEncodingToUTF8()
   if sys.platform.startswith('win'):
     freeze_support()
-  reload(sys)
-  if hasattr(sys, u'setdefaultencoding'):
-    sys.setdefaultencoding(u'UTF-8')
-  if GM_Globals[GM_WINDOWS]:
-    win32_unicode_argv() # cleanup sys.argv on Windows
-  if sys.platform.startswith('win'):
     win32_unicode_argv() # cleanup sys.argv on Windows
   sys.exit(ProcessGAMCommand(sys.argv))
