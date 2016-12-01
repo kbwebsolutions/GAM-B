@@ -1,3 +1,7 @@
+4.03.15
+
+Fixed error in run_batch.
+
 4.03.14
 
 Switched back to multi-processing.

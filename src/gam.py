@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.03.14'
+__version__ = u'4.03.15'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -10278,6 +10278,8 @@ gam create project
 
 def run_batch(items):
   from multiprocessing import Pool
+  if not items:
+    return
   num_worker_threads = min(len(items), GC_Values[GC_NUM_THREADS])
   pool = Pool(processes=num_worker_threads)
   sys.stderr.write(u'Using %s processes...\n' % num_worker_threads)
