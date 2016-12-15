@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.03.18'
+__version__ = u'4.03.19'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -2139,16 +2139,16 @@ def convertToUserID(user):
   if user.find(u'@') == -1:
     user = u'%s@%s' % (user, GC_Values[GC_DOMAIN])
   try:
-    return callGAPI(cd.users(), u'get', throw_reasons=[GAPI_NOT_FOUND], userKey=user, fields=u'id')[u'id']
-  except GAPI_notFound:
+    return callGAPI(cd.users(), u'get', throw_reasons=[GAPI_USER_NOT_FOUND, GAPI_BAD_REQUEST, GAPI_FORBIDDEN], userKey=user, fields=u'id')[u'id']
+  except (GAPI_userNotFound, GAPI_badRequest, GAPI_forbidden):
     print u'ERROR: no such user %s' % user
     sys.exit(3)
 
 def convertUserIDtoEmail(uid):
   cd = buildGAPIObject(u'directory')
   try:
-    return callGAPI(cd.users(), u'get', throw_reasons=[GAPI_NOT_FOUND], userKey=uid, fields=u'primaryEmail')[u'primaryEmail']
-  except GAPI_notFound:
+    return callGAPI(cd.users(), u'get', throw_reasons=[GAPI_USER_NOT_FOUND, GAPI_BAD_REQUEST, GAPI_FORBIDDEN], userKey=uid, fields=u'primaryEmail')[u'primaryEmail']
+  except (GAPI_userNotFound, GAPI_badRequest, GAPI_forbidden):
     return u'uid:{0}'.format(uid)
 
 def doCreateDataTranfer():
