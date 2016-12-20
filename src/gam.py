@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.03.19'
+__version__ = u'4.03.20'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -1769,7 +1769,7 @@ def doUpdateDomain():
     else:
       print u'ERROR: %s is not a valid argument for "gam update domain"' % sys.argv[i]
       sys.exit(2)
-  callGAPI(cd.customers(), u'update', customerKey=GC_Values[GC_CUSTOMER_ID], body=body)
+  callGAPI(cd.customers(), u'patch', customerKey=GC_Values[GC_CUSTOMER_ID], body=body)
   print u'%s is now the primary domain.' % domain_name
 
 def doGetDomainInfo():
@@ -1851,7 +1851,7 @@ def doUpdateCustomer():
       print u'ERROR: %s is not a valid argument for "gam update customer"' % myarg
       sys.exit(2)
   if body:
-    callGAPI(cd.customers(), u'update', customerKey=GC_Values[GC_CUSTOMER_ID], body=body)
+    callGAPI(cd.customers(), u'patch', customerKey=GC_Values[GC_CUSTOMER_ID], body=body)
   print u'Updated customer'
 
 def doDelDomain():
