@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.03.21'
+__version__ = u'4.03.22'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -9197,6 +9197,7 @@ GROUP_ARGUMENT_TO_PROPERTY_TITLE_MAP = {
   u'admincreated': [u'adminCreated', u'Admin_Created'],
   u'aliases': [u'aliases', u'Aliases', u'nonEditableAliases', u'NonEditableAliases'],
   u'description': [u'description', u'Description'],
+  u'directmemberscount': [u'directMembersCount', u'DirectMembersCount'],
   u'email': [u'email', u'Email'],
   u'id': [u'id', u'ID'],
   u'name': [u'name', u'Name'],
@@ -9236,7 +9237,7 @@ GROUP_ATTRIBUTES_ARGUMENT_TO_PROPERTY_MAP = {
 def doPrintGroups():
   cd = buildGAPIObject(u'directory')
   i = 3
-  members = owners = managers = False
+  members = membersCountOnly = managers = managersCountOnly = owners = ownersCountOnly = False
   customer = GC_Values[GC_CUSTOMER_ID]
   usedomain = usemember = None
   aliasDelimiter = u' '
@@ -9250,7 +9251,7 @@ def doPrintGroups():
   addFieldTitleToCSVfile(u'email', GROUP_ARGUMENT_TO_PROPERTY_TITLE_MAP, cdfieldsList, fieldsTitles, titles)
   maxResults = None
   roles = []
-  getSettings = False
+  getSettings = sortHeaders = False
   while i < len(sys.argv):
     myarg = sys.argv[i].lower()
     if myarg == u'todrive':
@@ -9273,6 +9274,17 @@ def doPrintGroups():
     elif myarg in GROUP_ARGUMENT_TO_PROPERTY_TITLE_MAP:
       addFieldTitleToCSVfile(myarg, GROUP_ARGUMENT_TO_PROPERTY_TITLE_MAP, cdfieldsList, fieldsTitles, titles)
       i += 1
+    elif myarg == u'settings':
+      getSettings = True
+      i += 1
+    elif myarg == u'allfields':
+      getSettings = sortHeaders = True
+      cdfieldsList = []
+      gsfieldsList = []
+      fieldsTitles = {}
+      for field in GROUP_ARGUMENT_TO_PROPERTY_TITLE_MAP:
+        addFieldTitleToCSVfile(field, GROUP_ARGUMENT_TO_PROPERTY_TITLE_MAP, cdfieldsList, fieldsTitles, titles)
+      i += 1
     elif myarg == u'fields':
       fieldNameList = sys.argv[i+1]
       for field in fieldNameList.lower().replace(u',', u' ').split():
@@ -9285,26 +9297,29 @@ def doPrintGroups():
           print u'ERROR: %s is not a valid argument for "gam print groups fields"' % field
           sys.exit(2)
       i += 2
-    elif myarg == u'members':
-      if myarg not in roles:
-        roles.append(ROLE_MEMBER)
-        addTitleToCSVfile(u'Members', titles)
-        members = True
+    elif myarg in [u'members', u'memberscount']:
+      roles.append(ROLE_MEMBER)
+      addTitlesToCSVfile([u'Members',], titles)
+      members = True
+      if myarg == u'memberscount':
+        membersCountOnly = True
       i += 1
-    elif myarg == u'owners':
-      if myarg not in roles:
-        roles.append(ROLE_OWNER)
-        addTitleToCSVfile(u'Owners', titles)
-        owners = True
+    elif myarg in [u'owners', u'ownerscount']:
+      roles.append(ROLE_OWNER)
+      addTitlesToCSVfile([u'Owners',], titles)
+      owners = True
+      if myarg == u'ownerscount':
+        ownersCountOnly = True
       i += 1
-    elif myarg == u'managers':
-      if myarg not in roles:
-        roles.append(ROLE_MANAGER)
-        addTitleToCSVfile(u'Managers', titles)
-        managers = True
+    elif myarg in [u'managers', u'managerscount']:
+      roles.append(ROLE_MANAGER)
+      addTitlesToCSVfile([u'Managers',], titles)
+      managers = True
+      if myarg == u'managerscount':
+        managersCountOnly = True
       i += 1
-    elif myarg == u'settings':
-      getSettings = True
+    elif myarg == u'countsonly':
+      membersCountOnly = managersCountOnly = ownersCountOnly = True
       i += 1
     else:
       print u'ERROR: %s is not a valid argument for "gam print groups"' % sys.argv[i]
@@ -9345,10 +9360,13 @@ def doPrintGroups():
                                    groupKey=groupEmail, roles=roles, fields=u'nextPageToken,members(email,id,role)', maxResults=GC_Values[GC_MEMBER_MAX_RESULTS])
       if members:
         allMembers = list()
+        membersCount = 0
       if managers:
         allManagers = list()
+        managersCount = 0
       if owners:
         allOwners = list()
+        ownersCount = 0
       for member in groupMembers:
         member_email = member.get(u'email', member.get(u'id', None))
         if not member_email:
@@ -9358,23 +9376,33 @@ def doPrintGroups():
         if role:
           if role == ROLE_MEMBER:
             if members:
-              allMembers.append(member_email)
+              membersCount += 1
+              if not membersCountOnly:
+                allMembers.append(member_email)
           elif role == ROLE_MANAGER:
             if managers:
-              allManagers.append(member_email)
+              managersCount += 1
+              if not managersCountOnly:
+                allManagers.append(member_email)
           elif role == ROLE_OWNER:
             if owners:
-              allOwners.append(member_email)
+              ownersCount += 1
+              if not ownersCountOnly:
+                allOwners.append(member_email)
           elif members:
-            allMembers.append(member_email)
+            membersCount += 1
+            if not membersCountOnly:
+              allMembers.append(member_email)
         elif members:
-          allMembers.append(member_email)
+          membersCount += 1
+          if not membersCountOnly:
+            allMembers.append(member_email)
       if members:
-        group[u'Members'] = memberDelimiter.join(allMembers)
+        group[u'Members'] = membersCount if membersCountOnly else memberDelimiter.join(allMembers)
       if managers:
-        group[u'Managers'] = memberDelimiter.join(allManagers)
+        group[u'Managers'] = managersCount if managersCountOnly else memberDelimiter.join(allManagers)
       if owners:
-        group[u'Owners'] = memberDelimiter.join(allOwners)
+        group[u'Owners'] = ownersCount if ownersCountOnly else memberDelimiter.join(allOwners)
     if getSettings and not GroupIsAbuseOrPostmaster(groupEmail):
       sys.stderr.write(u" Retrieving Settings for group %s (%s/%s)...\r\n" % (groupEmail, i, count))
       settings = callGAPI(gs.groups(), u'get',
@@ -9394,6 +9422,8 @@ def doPrintGroups():
       else:
         sys.stderr.write(u" Settings unavailable for group %s (%s/%s)...\r\n" % (groupEmail, i, count))
     csvRows.append(group)
+  if sortHeaders:
+    sortCSVTitles([u'Email',], titles)
   writeCSVfile(csvRows, titles, u'Groups', todrive)
 
 ORG_ARGUMENT_TO_PROPERTY_TITLE_MAP = {
