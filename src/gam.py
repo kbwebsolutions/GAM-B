@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.03.22'
+__version__ = u'4.03.23'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -7359,7 +7359,7 @@ def doUpdateUser(users, i):
       body[u'emails'] = [{u'type': u'custom', u'customType': u'former_employee', u'primary': False, u'address': user_primary}]
     sys.stdout.write(u'updating user %s...\n' % user)
     if body:
-      callGAPI(cd.users(), u'update', userKey=user, body=body)
+      callGAPI(cd.users(), u'patch', userKey=user, body=body)
     if admin_body:
       callGAPI(cd.users(), u'makeAdmin', userKey=user, body=admin_body)
 
@@ -7832,6 +7832,11 @@ def doWhatIs():
     doGetAliasInfo(alias_email=email)
 
 def doGetUserInfo(user_email=None):
+
+  def user_lic_result(request_id, response, exception):
+    if response and u'skuId' in response:
+      user_licenses.append(response[u'skuId'])
+
   cd = buildGAPIObject(u'directory')
   i = 3
   if user_email is None:
@@ -7851,8 +7856,12 @@ def doGetUserInfo(user_email=None):
   getSchemas = getAliases = getGroups = getLicenses = True
   projection = u'full'
   customFieldMask = viewType = None
-  skus = [u'Google-Apps-For-Business', u'Google-Apps-Unlimited', u'Google-Apps-For-Government', u'Google-Apps-For-Postini',
-          u'Google-Apps-Lite', u'Google-Vault', u'Google-Vault-Former-Employee']
+  skus = [u'Google-Apps-For-Business', u'Google-Apps-For-Government', u'Google-Apps-For-Postini',
+          u'Google-Apps-Lite', u'Google-Apps-Unlimited', u'Google-Drive-storage-20GB',
+          u'Google-Drive-storage-50GB', u'Google-Drive-storage-200GB', u'Google-Drive-storage-400GB',
+          u'Google-Drive-storage-1TB', u'Google-Drive-storage-2TB', u'Google-Drive-storage-4TB',
+          u'Google-Drive-storage-8TB', u'Google-Drive-storage-16TB', u'Google-Vault',
+          u'Google-Vault-Former-Employee',]
   while i < len(sys.argv):
     myarg = sys.argv[i].lower()
     if myarg == u'noaliases':
@@ -8047,13 +8056,14 @@ def doGetUserInfo(user_email=None):
   if getLicenses:
     print u'Licenses:'
     lic = buildGAPIObject(u'licensing')
+    lbatch = googleapiclient.http.BatchHttpRequest(callback=user_lic_result)
+    user_licenses = []
     for sku in skus:
       productId, skuId = getProductAndSKU(sku)
-      try:
-        result = callGAPI(lic.licenseAssignments(), u'get', throw_reasons=[GAPI_NOT_FOUND, GAPI_INVALID, GAPI_FORBIDDEN], userId=user_email, productId=productId, skuId=skuId)
-      except (GAPI_notFound, GAPI_invalid, GAPI_forbidden):
-        continue
-      print u' %s' % result[u'skuId']
+      lbatch.add(lic.licenseAssignments().get(userId=user_email, productId=productId, skuId=skuId, fields=u'skuId'))
+    lbatch.execute()
+    for user_license in user_licenses:
+      print '  %s' % user_license
 
 def doGetGroupInfo(group_name=None):
   cd = buildGAPIObject(u'directory')
@@ -9299,27 +9309,21 @@ def doPrintGroups():
       i += 2
     elif myarg in [u'members', u'memberscount']:
       roles.append(ROLE_MEMBER)
-      addTitlesToCSVfile([u'Members',], titles)
       members = True
       if myarg == u'memberscount':
         membersCountOnly = True
       i += 1
     elif myarg in [u'owners', u'ownerscount']:
       roles.append(ROLE_OWNER)
-      addTitlesToCSVfile([u'Owners',], titles)
       owners = True
       if myarg == u'ownerscount':
         ownersCountOnly = True
       i += 1
     elif myarg in [u'managers', u'managerscount']:
       roles.append(ROLE_MANAGER)
-      addTitlesToCSVfile([u'Managers',], titles)
       managers = True
       if myarg == u'managerscount':
         managersCountOnly = True
-      i += 1
-    elif myarg == u'countsonly':
-      membersCountOnly = managersCountOnly = ownersCountOnly = True
       i += 1
     else:
       print u'ERROR: %s is not a valid argument for "gam print groups"' % sys.argv[i]
@@ -9333,6 +9337,19 @@ def doPrintGroups():
   if getSettings:
     gs = buildGAPIObject(u'groupssettings')
   roles = u','.join(sorted(set(roles)))
+  if roles:
+    if members:
+      addTitlesToCSVfile([u'MembersCount',], titles)
+      if not membersCountOnly:
+        addTitlesToCSVfile([u'Members',], titles)
+    if managers:
+      addTitlesToCSVfile([u'ManagersCount',], titles)
+      if not managersCountOnly:
+        addTitlesToCSVfile([u'Managers',], titles)
+    if owners:
+      addTitlesToCSVfile([u'OwnersCount',], titles)
+      if not ownersCountOnly:
+        addTitlesToCSVfile([u'Owners',], titles)
   sys.stderr.write(u"Retrieving All Groups for G Suite account (may take some time on a large account)...\n")
   page_message = u'Got %%num_items%% groups: %%first_item%% - %%last_item%%\n'
   entityList = callGAPIpages(cd.groups(), u'list', u'groups',
@@ -9359,13 +9376,13 @@ def doPrintGroups():
                                    page_message=page_message, message_attribute=u'email',
                                    groupKey=groupEmail, roles=roles, fields=u'nextPageToken,members(email,id,role)', maxResults=GC_Values[GC_MEMBER_MAX_RESULTS])
       if members:
-        allMembers = list()
+        membersList = []
         membersCount = 0
       if managers:
-        allManagers = list()
+        managersList = []
         managersCount = 0
       if owners:
-        allOwners = list()
+        ownersList = []
         ownersCount = 0
       for member in groupMembers:
         member_email = member.get(u'email', member.get(u'id', None))
@@ -9378,31 +9395,37 @@ def doPrintGroups():
             if members:
               membersCount += 1
               if not membersCountOnly:
-                allMembers.append(member_email)
+                membersList.append(member_email)
           elif role == ROLE_MANAGER:
             if managers:
               managersCount += 1
               if not managersCountOnly:
-                allManagers.append(member_email)
+                managersList.append(member_email)
           elif role == ROLE_OWNER:
             if owners:
               ownersCount += 1
               if not ownersCountOnly:
-                allOwners.append(member_email)
+                ownersList.append(member_email)
           elif members:
             membersCount += 1
             if not membersCountOnly:
-              allMembers.append(member_email)
+              membersList.append(member_email)
         elif members:
           membersCount += 1
           if not membersCountOnly:
-            allMembers.append(member_email)
+            membersList.append(member_email)
       if members:
-        group[u'Members'] = membersCount if membersCountOnly else memberDelimiter.join(allMembers)
+        group[u'MembersCount'] = membersCount
+        if not membersCountOnly:
+          group[u'Members'] = memberDelimiter.join(membersList)
       if managers:
-        group[u'Managers'] = managersCount if managersCountOnly else memberDelimiter.join(allManagers)
+        group[u'ManagersCount'] = managersCount
+        if not managersCountOnly:
+          group[u'Managers'] = memberDelimiter.join(managersList)
       if owners:
-        group[u'Owners'] = ownersCount if ownersCountOnly else memberDelimiter.join(allOwners)
+        group[u'OwnersCount'] = ownersCount
+        if not ownersCountOnly:
+          group[u'Owners'] = memberDelimiter.join(ownersList)
     if getSettings and not GroupIsAbuseOrPostmaster(groupEmail):
       sys.stderr.write(u" Retrieving Settings for group %s (%s/%s)...\r\n" % (groupEmail, i, count))
       settings = callGAPI(gs.groups(), u'get',

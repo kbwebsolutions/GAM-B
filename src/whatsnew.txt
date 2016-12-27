@@ -1,12 +1,18 @@
+4.03.23
+
+Changed gam print groups output when any of members/memberscount/managers/managerscount/owners/ownerscount are specified.
+When members/managers/owners are specified, there will be two columns per role: Members,MembersCount,Managers,ManagersCount,Owners,OwnersCount
+When memberscount/managerscount/ownerscount are specified, there will be one column per role: MembersCount,ManagersCount,OwnersCount
+
 4.03.22
 
 Added memberscount, managerscount and ownerscount arguments to gam print groups; they cause the number of members/managers/owners to be shown,
-not the list of email addresses. If any of the members, managers or owners arguments are specified and countsonly is specified, only the counts will be shown.
+not the list of email addresses.
 Added allfields argument to gam print groups; this selects all of the basic group settings and all of the extended groups settings.
 Added directmemberscount to <GroupFieldName>; if this field is specified in gam print groups, it shows the number of entries in a group.
     gam print groups [todrive] ([domain <DomainName>] [member <UserItem>])
 	[maxresults <Number>] [allfields|([settings] <GroupFieldName>* [fields <GroupFieldNameList>])] [delimiter <String>]
-	[members|memberscount] [managers|managerscount] [owners|ownerscount] [countsonly]
+	[members|memberscount] [managers|managerscount] [owners|ownerscount]
 
 4.03.21
 
