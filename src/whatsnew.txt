@@ -1,3 +1,7 @@
+4.03.24
+
+Added shownoneditable argument to gam print aliases; this will show noneditable aliases in a column labelled NonEditableAlias.
+
 4.03.23
 
 Changed gam print groups output when any of members/memberscount/managers/managerscount/owners/ownerscount are specified.

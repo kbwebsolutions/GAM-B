@@ -644,7 +644,7 @@ gam create alias|nickname <EmailAddress> user|group|target <UniqueID>|<EmailAddr
 gam update alias|nickname <EmailAddress> user|group|target <UniqueID>|<EmailAddress>
 gam delete alias|nickname [user|group|target] <UniqueID>|<EmailAddress>
 gam info alias|nickname <EmailAddress>
-gam print aliases|nicknames [todrive]
+gam print aliases|nicknames [todrive] [shownoneditable]
 
 gam calendar <CalendarItem> add <CalendarACLRole> ([user] <EmailAddress>)|(group <EmailAddress>)|(domain [<DomainName>])|default
 gam calendar <CalendarItem> update <CalendarACLRole> ([user] <EmailAddress>)|(group <EmailAddress>)|(domain [<DomainName>])|default
@@ -825,7 +825,7 @@ gam <UserTypeEntity> delete|del emptydrivefolders
 gam <UserTypeEntity> empty drivetrash
 
 gam <UserTypeEntity> add drivefileacl <DriveFileID> anyone|(user <UserItem>)|(group <GroupItem>)|(domain <DomainName>)
-	(role <DriveFileACLRole>) [withlink] [sendmail] [emailmessage <String>]
+	(role <DriveFileACLRole>) [withlink] [sendemail] [emailmessage <String>]
 gam <UserTypeEntity> update drivefileacl <DriveFileID> <PermissionID>
 	(role <DriveFileACLRole>) [withlink] [transferownership <Boolean>]
 gam <UserTypeEntity> delete|del drivefileacl <DriveFileID> <PermissionID>
