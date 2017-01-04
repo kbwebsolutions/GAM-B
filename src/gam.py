@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.03.24'
+__version__ = u'4.03.25'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -4926,6 +4926,8 @@ def transferDriveFiles(users):
               target_parents.append({u'id': parent[u'id']})
           except TypeError:
             pass
+        if not target_parents:
+          target_parents.append({u'id': target_top_folder})
         callGAPI(target_drive.files(), u'patch', soft_errors=True, retry_reasons=[u'notFound'], fileId=file_id, body={u'parents': target_parents})
         if remove_source_user:
           callGAPI(target_drive.permissions(), u'delete', soft_errors=True, fileId=file_id, permissionId=source_permissionid)
