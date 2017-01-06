@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.03.26'
+__version__ = u'4.03.27'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -1503,6 +1503,13 @@ def showReport():
         del activity[u'events']
         activity_row = flatten_json(activity)
         for event in events:
+          for item in event.get(u'parameters', []):
+            if item[u'name'] in [u'start_time', u'end_time']:
+              val = item.get(u'intValue')
+              if val is not None:
+                dtval = datetime.datetime.fromtimestamp(int(val))
+                item[u'dateTimeValue'] = dtval.replace(dtval.year-1969).isoformat()
+                item.pop(u'intValue')
           row = flatten_json(event)
           row.update(activity_row)
           for item in row:
