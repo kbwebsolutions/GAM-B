@@ -1507,8 +1507,7 @@ def showReport():
             if item[u'name'] in [u'start_time', u'end_time']:
               val = item.get(u'intValue')
               if val is not None:
-                dtval = datetime.datetime.fromtimestamp(int(val))
-                item[u'dateTimeValue'] = dtval.replace(dtval.year-1969).isoformat()
+                item[u'dateTimeValue'] = datetime.datetime.fromtimestamp(int(val)-62135596800).isoformat()
                 item.pop(u'intValue')
           row = flatten_json(event)
           row.update(activity_row)
