@@ -1,3 +1,7 @@
+4.03.29
+
+Allow newlines in calendar event descriptions.
+
 4.03.28
 
 Date change in 4.03.27 was off by one day, corrected.

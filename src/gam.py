@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.03.28'
+__version__ = u'4.03.29'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -3569,7 +3569,7 @@ def doCalendarAddEvent():
       body[u'anyoneCanAddSelf'] = True
       i += 1
     elif sys.argv[i].lower() == u'description':
-      body[u'description'] = sys.argv[i+1]
+      body[u'description'] = sys.argv[i+1].replace(u'\\n', u'\n')
       i += 2
     elif sys.argv[i].lower() == u'start':
       if sys.argv[i+1].lower() == u'allday':
