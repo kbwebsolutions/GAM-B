@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.03.29'
+__version__ = u'4.03.30'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -7178,15 +7178,16 @@ and accept the Terms of Service (ToS). As soon as you've accepted the ToS popup,
     while True:
       print u' enabling API %s...' % api
       try:
-        callGAPI(serveman.services(), u'enable', throw_reasons=[u'failedPrecondition'],
+        callGAPI(serveman.services(), u'enable', throw_reasons=[u'failedPrecondition', u'forbidden'],
                  serviceName=api, body={u'consumerId': project_name})
         break
-      except googleapiclient.errors.HttpError, e:
+      except (GAPI_failedPrecondition, GAPI_forbidden) as e:
         print u'\nThere was an error enabling %s. Please resolve error as described below:' % api
-        print
-        print u'\n%s\n' % e
-        print
+        print u'%s\n' % e.message
+        if e.message.find(u'permission') != -1:
+          break
         raw_input(u'Press enter once resolved and we will try enabling the API again.')
+
   iam = googleapiclient.discovery.build(u'iam', u'v1', http=http, cache_discovery=False)
   print u'Creating Service Account'
   service_account = callGAPI(iam.projects().serviceAccounts(), u'create', name=u'projects/%s' % project_id,
@@ -7453,7 +7454,7 @@ def doUpdateGroup():
         checkNotSuspended = True
         i += 1
       if sys.argv[i].lower() in usergroup_types:
-        users_email = getUsersToModify(entity_type=sys.argv[i], entity=sys.argv[i+1], checkNotSuspended=checkNotSuspended)
+        users_email = getUsersToModify(entity_type=sys.argv[i], entity=sys.argv[i+1], checkNotSuspended=checkNotSuspended, groupUserMembersOnly=False)
       else:
         users_email = [sys.argv[i],]
       for user_email in users_email:
@@ -7474,9 +7475,9 @@ def doUpdateGroup():
       if sys.argv[i] == u'notsuspended':
         checkNotSuspended = True
         i += 1
-      users_email = getUsersToModify(entity_type=sys.argv[i], entity=sys.argv[i+1], checkNotSuspended=checkNotSuspended)
+      users_email = getUsersToModify(entity_type=sys.argv[i], entity=sys.argv[i+1], checkNotSuspended=checkNotSuspended, groupUserMembersOnly=False)
       users_email = [x.lower() for x in users_email]
-      current_emails = getUsersToModify(entity_type=u'group', entity=group, member_type=role)
+      current_emails = getUsersToModify(entity_type=u'group', entity=group, member_type=role, groupUserMembersOnly=False)
       current_emails = [x.lower() for x in current_emails]
       to_add = list(set(users_email) - set(current_emails))
       to_remove = list(set(current_emails) - set(users_email))
@@ -7492,7 +7493,7 @@ def doUpdateGroup():
       if sys.argv[i].lower() in [u'member', u'manager', u'owner']:
         i += 1
       if sys.argv[i].lower() in usergroup_types:
-        user_emails = getUsersToModify(entity_type=sys.argv[i], entity=sys.argv[i+1])
+        user_emails = getUsersToModify(entity_type=sys.argv[i], entity=sys.argv[i+1], groupUserMembersOnly=False)
       else:
         user_emails = [sys.argv[i],]
       for user_email in user_emails:
@@ -7509,7 +7510,7 @@ def doUpdateGroup():
         role = sys.argv[i].upper()
         i += 1
       if sys.argv[i].lower() in usergroup_types:
-        users_email = getUsersToModify(entity_type=sys.argv[i], entity=sys.argv[i+1])
+        users_email = getUsersToModify(entity_type=sys.argv[i], entity=sys.argv[i+1], groupUserMembersOnly=False)
       else:
         users_email = [sys.argv[i],]
       body = {u'role': role}
@@ -9992,7 +9993,7 @@ def doPrintResourceCalendars():
     csvRows.append(resUnit)
   writeCSVfile(csvRows, titles, u'Resources', todrive)
 
-def getUsersToModify(entity_type=None, entity=None, silent=False, member_type=None, checkNotSuspended=False):
+def getUsersToModify(entity_type=None, entity=None, silent=False, member_type=None, checkNotSuspended=False, groupUserMembersOnly=True):
   got_uids = False
   if entity_type is None:
     entity_type = sys.argv[1].lower()
@@ -10018,10 +10019,8 @@ def getUsersToModify(entity_type=None, entity=None, silent=False, member_type=No
       page_message = u'Got %%%%total_items%%%% %s...' % member_type_message
     members = callGAPIpages(cd.members(), u'list', u'members',
                             page_message=page_message,
-                            groupKey=group, roles=member_type, fields=u'nextPageToken,members(email)', maxResults=GC_Values[GC_MEMBER_MAX_RESULTS])
-    users = []
-    for member in members:
-      users.append(member[u'email'])
+                            groupKey=group, roles=member_type, fields=u'nextPageToken,members(email,type)', maxResults=GC_Values[GC_MEMBER_MAX_RESULTS])
+    users = [member[u'email'] for member in members if (not groupUserMembersOnly) or (member[u'type'] == u'USER')]
   elif entity_type in [u'ou', u'org']:
     got_uids = True
     ou = entity
