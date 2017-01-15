@@ -1,3 +1,9 @@
+4.03.31
+
+Added skipfields <CourseFieldNameList> argument to gam print courses to allow deselection of specific fields to print.
+    gam print courses [todrive] [teacher <UserItem>] [student <UserItem>] [alias|aliases] [delimiter <String>]
+        [show all|students|teachers] [fields <CourseFieldNameList>] [skipfields <CourseFieldNameList>]
+
 4.03.30
 
 group <GroupName> should only return users except when updating groups. Previously, group <GroupName> returned

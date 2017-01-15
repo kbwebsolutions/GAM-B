@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.03.30'
+__version__ = u'4.03.31'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -2478,6 +2478,16 @@ COURSE_ARGUMENT_TO_PROPERTY_MAP = {
 
 def doPrintCourses():
 
+  def _processFieldsList(myarg, i, fList):
+    fieldNameList = sys.argv[i+1]
+    for field in fieldNameList.lower().replace(u',', u' ').split():
+      if field in COURSE_ARGUMENT_TO_PROPERTY_MAP:
+        if field != u'id':
+          fList.append(COURSE_ARGUMENT_TO_PROPERTY_MAP[field])
+      else:
+        print u'ERROR: %s is not a valid argument for "gam print courses %s"' % (field, myarg)
+        sys.exit(2)
+
   def _saveParticipants(course, participants, role):
     jcount = len(participants)
     course[role] = jcount
@@ -2508,6 +2518,7 @@ def doPrintCourses():
   croom = buildGAPIObject(u'classroom')
   todrive = False
   fieldsList = []
+  skipFieldsList = []
   titles = [u'id',]
   csvRows = []
   teacherId = None
@@ -2542,13 +2553,10 @@ def doPrintCourses():
     elif myarg == u'fields':
       if not fieldsList:
         fieldsList = [u'id',]
-      fieldNameList = sys.argv[i+1]
-      for field in fieldNameList.lower().replace(u',', u' ').split():
-        if field in COURSE_ARGUMENT_TO_PROPERTY_MAP:
-          fieldsList.append(COURSE_ARGUMENT_TO_PROPERTY_MAP[field])
-        else:
-          print u'ERROR: %s is not a valid argument for "gam print courses fields"' % field
-          sys.exit(2)
+      _processFieldsList(myarg, i, fieldsList)
+      i += 2
+    elif myarg == u'skipfields':
+      _processFieldsList(myarg, i, skipFieldsList)
       i += 2
     else:
       print u'ERROR: %s is not a valid argument for "gam print courses"' % sys.argv[i]
@@ -2558,6 +2566,8 @@ def doPrintCourses():
   page_message = u'Got %%num_items%% courses...\n'
   all_courses = callGAPIpages(croom.courses(), u'list', u'courses', page_message=page_message, teacherId=teacherId, studentId=studentId, fields=fields)
   for course in all_courses:
+    for field in skipFieldsList:
+      course.pop(field, None)
     addRowTitlesToCSVfile(flatten_json(course), csvRows, titles)
   if showAliases or showMembers:
     if showAliases:
