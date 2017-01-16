@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.03.31'
+__version__ = u'4.03.32'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -8191,13 +8191,7 @@ def doGetGroupInfo(group_name=None):
                             groupKey=group_name, fields=u'nextPageToken,members(email,id,role,type)', maxResults=GC_Values[GC_MEMBER_MAX_RESULTS])
     print u'Members:'
     for member in members:
-      try:
-        print u' %s: %s (%s)' % (member[u'role'].lower(), member[u'email'], member[u'type'].lower())
-      except KeyError:
-        try:
-          print u' member: %s (%s)' % (member[u'email'], member[u'type'].lower())
-        except KeyError:
-          print u' member: %s (%s)' % (member[u'id'], member[u'type'].lower())
+      print u' %s: %s (%s)' % (member[u'role'].lower(), member.get(u'email', member[u'id']), member[u'type'].lower())
     print u'Total %s users in group' % len(members)
 
 def doGetAliasInfo(alias_email=None):
@@ -9683,6 +9677,14 @@ def doPrintGroupMembers():
             memberName = mbinfo[u'name']
           except (GAPI_notFound, GAPI_forbidden):
             memberName = u'Unknown'
+        elif member[u'type'] == u'CUSTOMER':
+          try:
+            mbinfo = callGAPI(cd.customers(), u'get',
+                              throw_reasons=[GAPI_BAD_REQUEST, GAPI_RESOURCE_NOT_FOUND, GAPI_FORBIDDEN],
+                              customerKey=member[u'id'], fields=u'customerDomain')
+            memberName = mbinfo[u'customerDomain']
+          except (GAPI_badRequest, GAPI_resourceNotFound, GAPI_forbidden):
+            memberName = u'Unknown'
         else:
           memberName = u'Unknown'
         member[u'name'] = memberName
@@ -10029,8 +10031,8 @@ def getUsersToModify(entity_type=None, entity=None, silent=False, member_type=No
       page_message = u'Got %%%%total_items%%%% %s...' % member_type_message
     members = callGAPIpages(cd.members(), u'list', u'members',
                             page_message=page_message,
-                            groupKey=group, roles=member_type, fields=u'nextPageToken,members(email,type)', maxResults=GC_Values[GC_MEMBER_MAX_RESULTS])
-    users = [member[u'email'] for member in members if (not groupUserMembersOnly) or (member[u'type'] == u'USER')]
+                            groupKey=group, roles=member_type, fields=u'nextPageToken,members(email,id,type)', maxResults=GC_Values[GC_MEMBER_MAX_RESULTS])
+    users = [member.get(u'email', member[u'id']) for member in members if (not groupUserMembersOnly) or (member[u'type'] == u'USER')]
   elif entity_type in [u'ou', u'org']:
     got_uids = True
     ou = entity
