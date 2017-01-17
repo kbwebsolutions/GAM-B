@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.03.32'
+__version__ = u'4.03.33'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -7057,7 +7057,8 @@ def getUserAttributes(i, cd, updateCmd=False):
       body.setdefault(up, {})
       body[up].setdefault(schemaName, {})
       i += 1
-      if sys.argv[i].lower() in [u'multivalue', u'multivalued', u'value']:
+      multivalue = sys.argv[i].lower()
+      if multivalue in [u'multivalue', u'multivalued', u'value', u'multinonempty']:
         i += 1
         body[up][schemaName].setdefault(fieldName, [])
         schemaValue = {}
@@ -7072,7 +7073,8 @@ def getUserAttributes(i, cd, updateCmd=False):
             schemaValue[u'customType'] = sys.argv[i]
             i += 1
         schemaValue[u'value'] = sys.argv[i]
-        body[up][schemaName][fieldName].append(schemaValue)
+        if schemaValue[u'value'] or multivalue != u'multinonempty':
+          body[up][schemaName][fieldName].append(schemaValue)
       else:
         body[up][schemaName][fieldName] = sys.argv[i]
       i += 1
