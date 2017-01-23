@@ -7136,7 +7136,7 @@ def doDelProjects(login_hint=None):
       print u'Deleting %s...' % pid
       try:
         callGAPI(crm.projects(), u'delete', projectId=pid, throw_reasons=[u'forbidden'])
-      except googleapiclient.errors.HttpError:
+      except GAPI_forbidden:
         pass
 
 def doCreateProject(login_hint=None):
