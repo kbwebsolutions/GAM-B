@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.03.36'
+__version__ = u'4.1.00'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -44,6 +44,7 @@ import random
 import re
 import socket
 import StringIO
+import urllib2
 
 import googleapiclient
 import googleapiclient.discovery
@@ -848,7 +849,6 @@ def SetGlobalVariables():
   return False
 
 def doGAMCheckForUpdates(forceCheck=False):
-  import urllib2
   import calendar
 
   current_version = __version__
@@ -3724,7 +3724,6 @@ def doPhoto(users):
     filename = filename.replace(u'#username#', user[:user.find(u'@')])
     print u"Updating photo for %s with %s (%s/%s)" % (user, filename, i, count)
     if re.match(u'^(ht|f)tps?://.*$', filename):
-      import urllib2
       try:
         f = urllib2.urlopen(filename)
         image_data = str(f.read())
@@ -7159,7 +7158,7 @@ def doCreateProject(login_hint=None):
         if u'message' in status[u'error'] and status[u'error'][u'message'].find(u'Callers must accept ToS') != -1:
           print u'''Please go to:
 
-https://console.developers.google.com
+https://console.cloud.google.com/start
 
 and accept the Terms of Service (ToS). As soon as you've accepted the ToS popup, you can return here and press enter.'''
           raw_input()
@@ -7183,11 +7182,10 @@ and accept the Terms of Service (ToS). As soon as you've accepted the ToS popup,
       sys.exit(2)
     break
 
+  apis_url = u'https://raw.githubusercontent.com/taers232c/GAM-B/master/src/project-apis.txt'
+  request = urllib2.Request(url=apis_url)
+  apis = urllib2.urlopen(request).read().splitlines()
   serveman = googleapiclient.discovery.build(u'servicemanagement', u'v1', http=http, cache_discovery=False)
-  apis = [u'admin.googleapis.com', u'appsactivity.googleapis.com', u'calendar-json.googleapis.com',
-          u'classroom.googleapis.com', u'drive', u'gmail.googleapis.com', u'groupssettings.googleapis.com',
-          u'licensing.googleapis.com', u'plus.googleapis.com', u'contacts.googleapis.com',
-          u'siteverification.googleapis.com']
   for api in apis:
     while True:
       print u' enabling API %s...' % api
@@ -10208,13 +10206,11 @@ def OAuthInfo():
     print u"Secret: %s" % credentials.client_secret
   except UnboundLocalError:
     pass
-  print u'Scopes:'
-  for scope in token_info[u'scope'].split(u' '):
+  scopes = token_info[u'scope'].split(u' ')
+  print u'Scopes (%s):' % len(scopes)
+  for scope in scopes:
     print u'  %s' % scope
-  try:
-    print u'G Suite Admin: %s' % token_info[u'email']
-  except KeyError:
-    print u'G Suite Admin: Unknown'
+  print u'G Suite Admin: %s' % credentials.id_token.get(u'email', u'Unknown')
 
 def doDeleteOAuth():
   _, credentials = getOauth2TxtStorageCredentials()
@@ -10363,7 +10359,7 @@ def doRequestOAuth(login_hint=None):
       return (False, u'ERROR: {0} scopes selected, maximum is {1}, please unselect some.\n'.format(len(scopes), MAXIMUM_SCOPES))
     if len(scopes) == 0:
       return (False, u'ERROR: No scopes selected, please select at least one.\n')
-    scopes.insert(0, u'email') # Email Display Scope, always included
+    scopes.insert(0, u'profile') # Email Display Scope, always included
     return (True, u'')
 
   MISSING_CLIENT_SECRETS_MESSAGE = u'''To use GAM you need to create an API project. Please run:
