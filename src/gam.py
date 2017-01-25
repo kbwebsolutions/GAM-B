@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.10.00'
+__version__ = u'4.11.00'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -8193,7 +8193,7 @@ def doGetGroupInfo(group_name=None):
                             groupKey=group_name, fields=u'nextPageToken,members(email,id,role,type)', maxResults=GC_Values[GC_MEMBER_MAX_RESULTS])
     print u'Members:'
     for member in members:
-      print u' %s: %s (%s)' % (member[u'role'].lower(), member.get(u'email', member[u'id']), member[u'type'].lower())
+      print u' %s: %s (%s)' % (member.get(u'role', ROLE_MEMBER).lower(), member.get(u'email', member[u'id']), member[u'type'].lower())
     print u'Total %s users in group' % len(members)
 
 def doGetAliasInfo(alias_email=None):

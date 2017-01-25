@@ -1,3 +1,7 @@
+4.11.00
+
+New gam-install.sh script.
+
 4.10.00
 
 Google API library updates.
