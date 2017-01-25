@@ -1,6 +1,7 @@
-4.1.00
+4.10.00
 
 Google API library updates.
+Handle non-domain groups in gam print group-members and gam print group members.
 
 4.03.26
 

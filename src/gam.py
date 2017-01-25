@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.1.00'
+__version__ = u'4.10.00'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -36,7 +36,7 @@ import collections
 import csv
 import datetime
 from htmlentitydefs import name2codepoint
-from HTMLParser import HTMLParser
+from HTMLParser import HTMLParser, HTMLParseError
 import json
 import mimetypes
 import platform
@@ -44,7 +44,6 @@ import random
 import re
 import socket
 import StringIO
-import urllib2
 
 import googleapiclient
 import googleapiclient.discovery
@@ -81,17 +80,21 @@ Go to the following link in your browser:
     {address}
 """
 
+
+GIT_USER = u'taers232c'
 GAM = u'GAM-B'
-GAM_URL = u'https://github.com/taers232c/{0}'.format(GAM)
+GAM_URL = u'https://github.com/{0}/{1}'.format(GIT_USER, GAM)
 GAM_INFO = u'GAM {0} - {1} / {2} / Python {3}.{4}.{5} {6} / {7} {8} /'.format(__version__, GAM_URL,
                                                                               __author__,
                                                                               sys.version_info[0], sys.version_info[1], sys.version_info[2],
                                                                               sys.version_info[3],
                                                                               platform.platform(), platform.machine())
-GAM_RELEASES = u'https://github.com/taers232c/{0}/releases'.format(GAM)
+GAM_RELEASES = u'https://github.com/{0}/{1}/releases'.format(GIT_USER, GAM)
 GAM_WIKI = u'https://github.com/jay0lee/GAM/wiki'
-GAM_ALL_RELEASES = u'https://api.github.com/repos/taers232c/'+GAM+u'/releases'
+GAM_ALL_RELEASES = u'https://api.github.com/repos/{0}/{1}/releases'.format(GIT_USER, GAM)
 GAM_LATEST_RELEASE = GAM_ALL_RELEASES+u'/latest'
+GAM_LATEST_SOURCE = u'https://raw.githubusercontent.com/{0}/{1}/master/src'.format(GIT_USER, GAM)
+GAM_PROJECT_APIS = GAM_LATEST_SOURCE+u'/project-apis.txt'
 
 TRUE = u'true'
 FALSE = u'false'
@@ -421,7 +424,7 @@ def dehtml(text):
     parser.feed(text.encode(u'utf-8'))
     parser.close()
     return parser.text()
-  except:
+  except HTMLParseError:
     from traceback import print_exc
     print_exc(file=sys.stderr)
     return text
@@ -861,12 +864,10 @@ def doGAMCheckForUpdates(forceCheck=False):
     if last_check_time > now_time-604800:
       return
     check_url = GAM_LATEST_RELEASE # latest full release
-  headers = {u'Accept': u'application/vnd.github.v3.text+json'}
-  request = urllib2.Request(url=check_url, headers=headers)
   try:
-    c = urllib2.urlopen(request)
+    _, c = httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL]).request(check_url, u'GET', headers={u'Accept': u'application/vnd.github.v3.text+json'})
     try:
-      release_data = json.loads(c.read())
+      release_data = json.loads(c)
     except ValueError:
       return
     if isinstance(release_data, list):
@@ -892,7 +893,7 @@ def doGAMCheckForUpdates(forceCheck=False):
       sys.exit(0)
     writeFile(GM_Globals[GM_LAST_UPDATE_CHECK_TXT], str(now_time), continueOnError=True, displayError=forceCheck)
     return
-  except (urllib2.HTTPError, urllib2.URLError):
+  except (httplib2.HttpLib2Error, httplib2.ServerNotFoundError, httplib2.CertificateValidationUnsupported):
     return
 
 def doGAMVersion(checkForArgs=True):
@@ -3725,9 +3726,9 @@ def doPhoto(users):
     print u"Updating photo for %s with %s (%s/%s)" % (user, filename, i, count)
     if re.match(u'^(ht|f)tps?://.*$', filename):
       try:
-        f = urllib2.urlopen(filename)
-        image_data = str(f.read())
-      except urllib2.HTTPError as e:
+        _, f = httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL]).request(filename, u'GET')
+        image_data = str(f)
+      except (httplib2.HttpLib2Error, httplib2.ServerNotFoundError, httplib2.CertificateValidationUnsupported) as e:
         print e
         continue
     else:
@@ -7182,9 +7183,8 @@ and accept the Terms of Service (ToS). As soon as you've accepted the ToS popup,
       sys.exit(2)
     break
 
-  apis_url = u'https://raw.githubusercontent.com/taers232c/GAM-B/master/src/project-apis.txt'
-  request = urllib2.Request(url=apis_url)
-  apis = urllib2.urlopen(request).read().splitlines()
+  _, c = httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL]).request(GAM_PROJECT_APIS, u'GET')
+  apis = c.splitlines()
   serveman = googleapiclient.discovery.build(u'servicemanagement', u'v1', http=http, cache_discovery=False)
   for api in apis:
     while True:
@@ -9422,6 +9422,7 @@ def doPrintGroups():
       page_message = u'Got %%num_items%% members: %%first_item%% - %%last_item%%\n'
       groupMembers = callGAPIpages(cd.members(), u'list', u'members',
                                    page_message=page_message, message_attribute=u'email',
+                                   soft_errors=True,
                                    groupKey=groupEmail, roles=roles, fields=u'nextPageToken,members(email,id,role)', maxResults=GC_Values[GC_MEMBER_MAX_RESULTS])
       if members:
         membersList = []
@@ -9653,6 +9654,7 @@ def doPrintGroupMembers():
     group_email = group[u'email']
     sys.stderr.write(u'Getting members for %s (%s/%s)\n' % (group_email, i, count))
     group_members = callGAPIpages(cd.members(), u'list', u'members',
+                                  soft_errors=True,
                                   groupKey=group_email, fields=fields, maxResults=GC_Values[GC_MEMBER_MAX_RESULTS])
     for member in group_members:
       for unwanted_item in [u'kind', u'etag']:
@@ -10373,6 +10375,9 @@ gam create project
   try:
     cs_json = json.loads(cs_data)
     client_id = cs_json[u'installed'][u'client_id']
+    # chop off .apps.googleusercontent.com suffix as it's not needed
+    # and we need to keep things short for the Auth URL.
+    client_id = re.sub(r'\.apps\.googleusercontent\.com$', u'', client_id)
     client_secret = cs_json[u'installed'][u'client_secret']
   except (ValueError, IndexError, KeyError):
     print u'ERROR: the format of your client secrets file:\n\n%s\n\n is incorrect. Please recreate the file.'
@@ -10442,7 +10447,7 @@ gam create project
         break
   flow = oauth2client.client.OAuth2WebServerFlow(client_id=client_id,
                                                  client_secret=client_secret, scope=scopes, redirect_uri=oauth2client.client.OOB_CALLBACK_URN,
-                                                 user_agent=GAM_INFO, access_type=u'offline', response_type=u'code', login_hint=login_hint)
+                                                 user_agent=GAM_INFO, response_type=u'code', login_hint=login_hint)
   storage, _ = getOauth2TxtStorageCredentials()
   http = httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL])
   flags = cmd_flags(noLocalWebserver=GC_Values[GC_NO_BROWSER])
