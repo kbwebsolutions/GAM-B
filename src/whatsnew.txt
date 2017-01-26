@@ -1,6 +1,7 @@
 4.11.00
 
 New gam-install.sh script.
+SKU Google-Apps-Unlimited renamed to Google-Apps-Enterprise.
 
 4.10.00
 
