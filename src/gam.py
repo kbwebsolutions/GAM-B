@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.11.00'
+__version__ = u'4.11.01'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -1733,7 +1733,7 @@ def doUpdateCourse():
       body[u'descriptionHeading'] = sys.argv[i+1]
       i += 2
     elif sys.argv[i].lower() == u'description':
-      body[u'description'] = sys.argv[i+1]
+      body[u'description'] = sys.argv[i+1].replace(u'\\n', u'\n')
       i += 2
     elif sys.argv[i].lower() == u'room':
       body[u'room'] = sys.argv[i+1]
@@ -2410,7 +2410,7 @@ def doCreateCourse():
       body[u'descriptionHeading'] = sys.argv[i+1]
       i += 2
     elif sys.argv[i].lower() == u'description':
-      body[u'description'] = sys.argv[i+1]
+      body[u'description'] = sys.argv[i+1].replace(u'\\n', u'\n')
       i += 2
     elif sys.argv[i].lower() == u'room':
       body[u'room'] = sys.argv[i+1]
@@ -7272,7 +7272,7 @@ def doCreateGroup():
       got_name = True
       i += 2
     elif sys.argv[i].lower() == u'description':
-      body[u'description'] = sys.argv[i+1]
+      body[u'description'] = sys.argv[i+1].replace(u'\\n', u'\n')
       i += 2
     else:
       value = sys.argv[i+1]
@@ -7350,7 +7350,7 @@ def doCreateOrg():
   body[u'parentOrgUnitPath'] = u'/'
   while i < len(sys.argv):
     if sys.argv[i].lower() == u'description':
-      body[u'description'] = sys.argv[i+1]
+      body[u'description'] = sys.argv[i+1].replace(u'\\n', u'\n')
       i += 2
     elif sys.argv[i].lower() == u'parent':
       body[u'parentOrgUnitPath'] = sys.argv[i+1]
@@ -7373,7 +7373,7 @@ def doCreateResourceCalendar():
   i = 5
   while i < len(sys.argv):
     if sys.argv[i].lower() == u'description':
-      body[u'resourceDescription'] = sys.argv[i+1]
+      body[u'resourceDescription'] = sys.argv[i+1].replace(u'\\n', u'\n')
       i += 2
     elif sys.argv[i].lower() == u'type':
       body[u'resourceType'] = sys.argv[i+1]
@@ -7654,7 +7654,7 @@ def doUpdateResourceCalendar():
       body[u'resourceName'] = sys.argv[i+1]
       i += 2
     elif sys.argv[i].lower() == u'description':
-      body[u'resourceDescription'] = sys.argv[i+1]
+      body[u'resourceDescription'] = sys.argv[i+1].replace(u'\\n', u'\n')
       i += 2
     elif sys.argv[i].lower() == u'type':
       body[u'resourceType'] = sys.argv[i+1]
@@ -7825,7 +7825,7 @@ def doUpdateOrg():
         body[u'name'] = sys.argv[i+1]
         i += 2
       elif sys.argv[i].lower() == u'description':
-        body[u'description'] = sys.argv[i+1]
+        body[u'description'] = sys.argv[i+1].replace(u'\\n', u'\n')
         i += 2
       elif sys.argv[i].lower() == u'parent':
         body[u'parentOrgUnitPath'] = sys.argv[i+1]
