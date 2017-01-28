@@ -1,3 +1,7 @@
+4.11.02
+
+Improved performance of gam modify messages by using new batchModify API function.
+
 4.11.01
 
 Allow newlines in description field for ous, groups, resource calendars, courses.

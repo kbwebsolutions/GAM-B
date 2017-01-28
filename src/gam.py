@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.11.01'
+__version__ = u'4.11.02'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -5500,7 +5500,7 @@ def labelsToLabelIds(gmail, labels):
         parent_label = parent_label[:parent_label.rfind(u'/')]
   return labelIds
 
-def doProcessMessages(users, function):
+def doProcessMessagesOrThreads(users, function, unit=u'messages'):
   query = None
   doIt = False
   maxToProcess = 1
@@ -5526,7 +5526,7 @@ def doProcessMessages(users, function):
       body[u'removeLabelIds'].append(sys.argv[i+1])
       i += 2
     else:
-      print u'ERROR: %s is not a valid argument for "gam <users> %s messages"' % (sys.argv[i], function)
+      print u'ERROR: %s is not a valid argument for "gam <users> %s %s"' % (sys.argv[i], function, unit)
       sys.exit(2)
   if not query:
     print u'ERROR: No query specified. You must specify some query!'
@@ -5536,44 +5536,48 @@ def doProcessMessages(users, function):
     user, gmail = buildGmailGAPIObject(user)
     if not gmail:
       continue
-    print u'Searching messages for %s' % user
-    page_message = u'Got %%%%total_items%%%% messages for user %s' % user
-    listResult = callGAPIpages(gmail.users().messages(), u'list', u'messages', page_message=page_message,
-                               userId=u'me', q=query, includeSpamTrash=True, soft_errors=True)
-    result_count = len(listResult)
+    print u'Searching %s for %s' % (unit, user)
+    unitmethod = getattr(gmail.users(), unit)
+    page_message = u'Got %%%%total_items%%%% %s for user %s' % (unit, user)
+    listResult = callGAPIpages(unitmethod(), u'list', unit, page_message=page_message,
+                               userId=u'me', q=query, includeSpamTrash=True, soft_errors=True, fields=u'nextPageToken,{0}(id)'.format(unit))
+    messageIds = [message[u'id'] for message in listResult]
+    result_count = len(messageIds)
     if not doIt or result_count == 0:
       print u'would try to %s %s messages for user %s (max %s)\n' % (function, result_count, user, maxToProcess)
       continue
     elif result_count > maxToProcess:
       print u'WARNING: refusing to %s ANY messages for %s since max messages to process is %s and messages to be %s is %s\n' % (function, user, maxToProcess, action, result_count)
       continue
-    i = 0
-    if function == u'delete':
-      id_batches = [[]]
-      for del_me in listResult:
-        id_batches[i].append(del_me[u'id'])
-        if len(id_batches[i]) == 1000:
-          i += 1
-          id_batches.append([])
-      deleted_messages = 0
-      for id_batch in id_batches:
-        print u'deleting %s messages' % len(id_batch)
-        callGAPI(gmail.users().messages(), u'batchDelete',
-                 body={u'ids': id_batch}, userId=u'me')
-        deleted_messages += len(id_batch)
-        print u'deleted %s of %s messages' % (deleted_messages, result_count)
-      continue
-    if not body:
-      kwargs = {}
-    else:
-      kwargs = {u'body': {}}
+    if unit == u'messages' and function in [u'delete', u'modify']:
+      batchFunction = [u'batchModify', u'batchDelete'][function == u'delete']
+      ptFunction = [u'modified', u'deleted'][function == u'delete']
+      processed_count = 0
+      batch_count = min(result_count-processed_count, 1000)
+      batchBody = {}
       for my_key in body:
-        kwargs[u'body'][my_key] = labelsToLabelIds(gmail, body[my_key])
-    for a_message in listResult:
-      i += 1
-      print u' %s message %s for user %s (%s/%s)' % (function, a_message[u'id'], user, i, result_count)
-      callGAPI(gmail.users().messages(), function,
-               id=a_message[u'id'], userId=u'me', **kwargs)
+        batchBody[my_key] = labelsToLabelIds(gmail, body[my_key])
+      while batch_count > 0:
+        batchBody[u'ids'] = messageIds[processed_count:processed_count+batch_count]
+        print u'%s %s messages' % (function, batch_count)
+        callGAPI(unitmethod(), batchFunction,
+                 userId=u'me', body=batchBody)
+        processed_count += batch_count
+        print u'%s %s of %s messages' % (ptFunction, processed_count, result_count)
+        batch_count = min(result_count-processed_count, 1000)
+    else:
+      if body:
+        kwargs = {u'body': {}}
+        for my_key in body:
+          kwargs[u'body'][my_key] = labelsToLabelIds(gmail, body[my_key])
+      else:
+        kwargs = {}
+      i = 0
+      for messageId in messageIds:
+        i += 1
+        print u' %s %s %s for user %s (%s/%s)' % (function, unit, messageId, user, i, result_count)
+        callGAPI(unitmethod(), function,
+                 userId=u'me', id=messageId, **kwargs)
 
 def doDeleteLabel(users):
   label = sys.argv[5]
@@ -11015,21 +11019,27 @@ def ProcessGAMCommand(args):
     elif command == u'modify':
       modifyWhat = sys.argv[4].lower()
       if modifyWhat in [u'message', u'messages']:
-        doProcessMessages(users, u'modify')
+        doProcessMessagesOrThreads(users, u'modify', u'messages')
+      elif modifyWhat in [u'thread', u'threads']:
+        doProcessMessagesOrThreads(users, u'modify', u'threads')
       else:
         print u'ERROR: %s is not a valid argument for "gam <users> modify"' % modifyWhat
         sys.exit(2)
     elif command == u'trash':
       trashWhat = sys.argv[4].lower()
       if trashWhat in [u'message', u'messages']:
-        doProcessMessages(users, u'trash')
+        doProcessMessagesOrThreads(users, u'trash', u'messages')
+      elif trashWhat in [u'thread', u'threads']:
+        doProcessMessagesOrThreads(users, u'trash', u'threads')
       else:
         print u'ERROR: %s is not a valid argument for "gam <users> trash"' % trashWhat
         sys.exit(2)
     elif command == u'untrash':
       untrashWhat = sys.argv[4].lower()
       if untrashWhat in [u'message', u'messages']:
-        doProcessMessages(users, u'untrash')
+        doProcessMessagesOrThreads(users, u'untrash', u'messages')
+      elif untrashWhat in [u'thread', u'threads']:
+        doProcessMessagesOrThreads(users, u'untrash', u'threads')
       else:
         print u'ERROR: %s is not a valid argument for "gam <users> untrash"' % untrashWhat
         sys.exit(2)
@@ -11042,7 +11052,9 @@ def ProcessGAMCommand(args):
       elif delWhat == u'label':
         doDeleteLabel(users)
       elif delWhat in [u'message', u'messages']:
-        doProcessMessages(users, u'delete')
+        doProcessMessagesOrThreads(users, u'delete', u'messages')
+      elif delWhat in [u'thread', u'threads']:
+        doProcessMessagesOrThreads(users, u'delete', u'threads')
       elif delWhat == u'photo':
         deletePhoto(users)
       elif delWhat in [u'license', u'licence']:
