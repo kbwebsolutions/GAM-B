@@ -4854,8 +4854,9 @@ def showDriveFileInfo(users):
     user, drive = buildDriveGAPIObject(user)
     if not drive:
       continue
-    feed = callGAPI(drive.files(), u'get', fileId=fileId, fields=fields)
-    print_json(None, feed)
+    feed = callGAPI(drive.files(), u'get', soft_errors=True, fileId=fileId, fields=fields)
+    if feed:
+      print_json(None, feed)
 
 def showDriveFileRevisions(users):
   fileId = sys.argv[5]
