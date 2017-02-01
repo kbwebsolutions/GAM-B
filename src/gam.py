@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.11.03'
+__version__ = u'4.11.04'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -1167,6 +1167,7 @@ API_VER_MAPPING = {
   u'oauth2': u'v2',
   u'plus': u'v1',
   u'reports': u'reports_v1',
+  u'reseller': u'v1',
   u'siteVerification': u'v1',
   }
 
@@ -2645,35 +2646,21 @@ def doPrintCourseParticipants():
     all_courses = []
     for course in courses:
       all_courses.append(callGAPI(croom.courses(), u'get', id=course))
-  i = 1
+  i = 0
   count = len(all_courses)
   for course in all_courses:
+    i += 1
     courseId = course[u'id']
     if showMembers != u'students':
-      teacher_message = u' got %%%%num_items%%%% teachers for course %s (%s/%s)' % (courseId, i, count)
-      teachers = callGAPIpages(croom.courses().teachers(), u'list', u'teachers', page_message=teacher_message, courseId=courseId)
+      page_message = u' got %%%%num_items%%%% teachers for course %s (%s/%s)' % (courseId, i, count)
+      teachers = callGAPIpages(croom.courses().teachers(), u'list', u'teachers', page_message=page_message, courseId=courseId)
       for teacher in teachers:
-        participant = flatten_json(teacher)
-        participant[u'courseId'] = courseId
-        participant[u'courseName'] = course[u'name']
-        participant[u'userRole'] = u'TEACHER'
-        csvRows.append(participant)
-        for item in participant:
-          if item not in titles:
-            titles.append(item)
+        addRowTitlesToCSVfile(flatten_json(teacher, flattened={u'courseId': courseId, u'courseName': course[u'name'], u'userRole': u'TEACHER'}), csvRows, titles)
     if showMembers != u'teachers':
-      student_message = u' got %%%%num_items%%%% students for course %s (%s/%s)' % (courseId, i, count)
-      students = callGAPIpages(croom.courses().students(), u'list', u'students', page_message=student_message, courseId=courseId)
+      page_message = u' got %%%%num_items%%%% students for course %s (%s/%s)' % (courseId, i, count)
+      students = callGAPIpages(croom.courses().students(), u'list', u'students', page_message=page_message, courseId=courseId)
       for student in students:
-        participant = flatten_json(student)
-        participant[u'courseId'] = courseId
-        participant[u'courseName'] = course[u'name']
-        participant[u'userRole'] = u'STUDENT'
-        csvRows.append(participant)
-        for item in participant:
-          if item not in titles:
-            titles.append(item)
-    i += 1
+        addRowTitlesToCSVfile(flatten_json(student, flattened={u'courseId': courseId, u'courseName': course[u'name'], u'userRole': u'STUDENT'}), csvRows, titles)
   writeCSVfile(csvRows, titles, u'Course Participants', todrive)
 
 PRINTJOB_ASCENDINGORDER_MAP = {
@@ -5062,7 +5049,8 @@ SKUS = {
   u'Google-Apps-For-Business': {u'product': u'Google-Apps', u'aliases': [u'gafb', u'gafw', u'basic', u'gsuite-basic']},
   u'Google-Apps-For-Postini': {u'product': u'Google-Apps', u'aliases': [u'gams', u'postini', u'gsuite-gams']},
   u'Google-Apps-Lite': {u'product': u'Google-Apps', u'aliases': [u'gal', u'lite', u'gsuite-lite']},
-  u'Google-Apps-Enterprise': {u'product': u'Google-Apps', u'aliases': [u'gau', u'unlimited', u'gsuite-business']},
+  u'Google-Apps-Unlimited': {u'product': u'Google-Apps', u'aliases': [u'gau', u'unlimited', u'gsuite-business']},
+  u'Google-Apps-Enterprise': {u'product': u'Google-Apps', u'aliases': [u'gae', u'enterprise', u'gsuite-enterprise']},
   u'Google-Drive-storage-20GB': {u'product': u'Google-Drive-storage', u'aliases': [u'drive-20gb', u'drive20gb', u'20gb']},
   u'Google-Drive-storage-50GB': {u'product': u'Google-Drive-storage', u'aliases': [u'drive-50gb', u'drive50gb', u'50gb']},
   u'Google-Drive-storage-200GB': {u'product': u'Google-Drive-storage', u'aliases': [u'drive-200gb', u'drive200gb', u'200gb']},
@@ -5074,7 +5062,8 @@ SKUS = {
   u'Google-Drive-storage-16TB': {u'product': u'Google-Drive-storage', u'aliases': [u'drive-16tb', u'drive16tb', u'16tb']},
   u'Google-Vault': {u'product': u'Google-Vault', u'aliases': [u'vault']},
   u'Google-Vault-Former-Employee': {u'product': u'Google-Vault', u'aliases': [u'vfe']},
-  u'Google-Coordinate': {u'product': u'Google-Coordinate', u'aliases': [u'coordinate']}
+  u'Google-Coordinate': {u'product': u'Google-Coordinate', u'aliases': [u'coordinate']},
+  u'Google-Chrome-Device-Management': {u'product': u'Google-Chrome-Device-Management', u'aliases': [u'chrome', u'cdm']}
   }
 
 def getProductAndSKU(sku):
@@ -5804,7 +5793,11 @@ def renameLabels(users):
         continue
       match_result = re.search(pattern, label[u'name'])
       if match_result is not None:
-        new_label_name = replace % match_result.groups()
+        try:
+          new_label_name = replace % match_result.groups()
+        except TypeError:
+          print u'ERROR: The number of subfields ({0}) in search "{1}" does not match the number of subfields ({2}) in replace "{3}"'.format(len(match_result.groups()), search, replace.count(u'%s'), replace)
+          sys.exit(2)
         print u' Renaming "%s" to "%s"' % (label[u'name'], new_label_name)
         try:
           callGAPI(gmail.users().labels(), u'patch', soft_errors=True, throw_reasons=[GAPI_ABORTED], id=label[u'id'], userId=user, body={u'name': new_label_name})
@@ -7465,11 +7458,15 @@ def doUpdateGroup():
       else:
         users_email = [sys.argv[i],]
       for user_email in users_email:
-        if user_email != u'*' and user_email.find(u'@') == -1:
-          user_email = u'%s@%s' % (user_email, GC_Values[GC_DOMAIN])
+        if user_email == u'*' or user_email == GC_Values[GC_CUSTOMER_ID]:
+          user_email = GC_Values[GC_CUSTOMER_ID]
+          body = {u'role': role, u'id': GC_Values[GC_CUSTOMER_ID]}
+        else:
+          if user_email.find(u'@') == -1:
+            user_email = u'%s@%s' % (user_email, GC_Values[GC_DOMAIN])
+          body = {u'role': role, u'email': user_email}
         sys.stderr.write(u' adding %s %s...\n' % (role.lower(), user_email))
         try:
-          body = {u'role': role, u'email': user_email}
           callGAPI(cd.members(), u'insert', soft_errors=True, groupKey=group, body=body)
         except googleapiclient.errors.HttpError:
           pass
@@ -7482,10 +7479,18 @@ def doUpdateGroup():
       if sys.argv[i] == u'notsuspended':
         checkNotSuspended = True
         i += 1
-      users_email = getUsersToModify(entity_type=sys.argv[i], entity=sys.argv[i+1], checkNotSuspended=checkNotSuspended, groupUserMembersOnly=False)
-      users_email = [x.lower() for x in users_email]
-      current_emails = getUsersToModify(entity_type=u'group', entity=group, member_type=role, groupUserMembersOnly=False)
-      current_emails = [x.lower() for x in current_emails]
+      users_email = []
+      for user_email in getUsersToModify(entity_type=sys.argv[i], entity=sys.argv[i+1], checkNotSuspended=checkNotSuspended, groupUserMembersOnly=False):
+        if user_email == u'*' or user_email == GC_Values[GC_CUSTOMER_ID]:
+          users_email.append(GC_Values[GC_CUSTOMER_ID])
+        else:
+          users_email.append(user_email.lower())
+      current_emails = []
+      for current_email in getUsersToModify(entity_type=u'group', entity=group, member_type=role, groupUserMembersOnly=False):
+        if current_email == GC_Values[GC_CUSTOMER_ID]:
+          current_emails.append(current_email)
+        else:
+          current_emails.append(current_email.lower())
       to_add = list(set(users_email) - set(current_emails))
       to_remove = list(set(current_emails) - set(users_email))
       sys.stderr.write(u'Need to add %s %s and remove %s.\n' % (len(to_add), role, len(to_remove)))
@@ -7504,9 +7509,11 @@ def doUpdateGroup():
       else:
         user_emails = [sys.argv[i],]
       for user_email in user_emails:
-        if user_email[:4].lower() == u'uid:':
+        if user_email == u'*':
+          user_email = GC_Values[GC_CUSTOMER_ID]
+        elif user_email[:4].lower() == u'uid:':
           user_email = user_email[4:]
-        elif user_email != u'*' and user_email.find(u'@') == -1:
+        elif user_email != GC_Values[GC_CUSTOMER_ID] and user_email.find(u'@') == -1:
           user_email = u'%s@%s' % (user_email, GC_Values[GC_DOMAIN])
         sys.stderr.write(u' removing %s\n' % user_email)
         callGAPI(cd.members(), u'delete', soft_errors=True, groupKey=group, memberKey=user_email)
@@ -7522,7 +7529,9 @@ def doUpdateGroup():
         users_email = [sys.argv[i],]
       body = {u'role': role}
       for user_email in users_email:
-        if user_email != u'*' and user_email.find(u'@') == -1:
+        if user_email == u'*':
+          user_email = GC_Values[GC_CUSTOMER_ID]
+        elif user_email != GC_Values[GC_CUSTOMER_ID] and user_email.find(u'@') == -1:
           user_email = u'%s@%s' % (user_email, GC_Values[GC_DOMAIN])
         sys.stderr.write(u' updating %s %s...\n' % (role.lower(), user_email))
         try:
@@ -7544,8 +7553,12 @@ def doUpdateGroup():
         roles = u','.join(sorted(set(roles)))
       else:
         roles = ROLE_MEMBER
-      user_emails = getUsersToModify(entity_type=u'group', entity=group, member_type=roles)
+      user_emails = getUsersToModify(entity_type=u'group', entity=group, member_type=roles, groupUserMembersOnly=False)
       for user_email in user_emails:
+        if user_email == u'*':
+          user_email = GC_Values[GC_CUSTOMER_ID]
+        elif user_email != GC_Values[GC_CUSTOMER_ID] and user_email.find(u'@') == -1:
+          user_email = u'%s@%s' % (user_email, GC_Values[GC_DOMAIN])
         sys.stderr.write(u' removing %s\n' % user_email)
         callGAPI(cd.members(), u'delete', soft_errors=True, groupKey=group, memberKey=user_email)
   else:
@@ -10028,8 +10041,7 @@ def getUsersToModify(entity_type=None, entity=None, silent=False, member_type=No
     if not silent:
       sys.stderr.write(u"Getting %s of %s (may take some time for large groups)...\n" % (member_type_message, group))
       page_message = u'Got %%%%total_items%%%% %s...' % member_type_message
-    members = callGAPIpages(cd.members(), u'list', u'members',
-                            page_message=page_message,
+    members = callGAPIpages(cd.members(), u'list', u'members', page_message=page_message,
                             groupKey=group, roles=member_type, fields=u'nextPageToken,members(email,id,type)', maxResults=GC_Values[GC_MEMBER_MAX_RESULTS])
     users = [member.get(u'email', member[u'id']) for member in members if (not groupUserMembersOnly) or (member[u'type'] == u'USER')]
   elif entity_type in [u'ou', u'org']:
@@ -10174,7 +10186,7 @@ def getUsersToModify(entity_type=None, entity=None, silent=False, member_type=No
     for user in users:
       if user[:4] == u'uid:':
         full_users.append(user[4:])
-      elif user.find(u'@') == -1:
+      elif user != u'*' and user.find(u'@') == -1:
         full_users.append(u'%s@%s' % (user, GC_Values[GC_DOMAIN]))
       else:
         full_users.append(user)
@@ -10317,6 +10329,10 @@ OAUTH2_SCOPES = [
   {u'name': u'Roles Directory API',
    u'subscopes': [u'readonly'],
    u'scopes': u'https://www.googleapis.com/auth/admin.directory.rolemanagement'},
+  {u'name': u'Reseller API',
+   u'subscopes': [],
+   u'offByDefault': True,
+   u'scopes': u'https://www.googleapis.com/auth/apps.order'}
   ]
 
 OAUTH2_MENU = u'''
@@ -10337,7 +10353,7 @@ OAUTH2_MENU += '''
      c)  Continue to authorization
 '''
 OAUTH2_CMDS = [u's', u'u', u'e', u'c']
-MAXIMUM_SCOPES = 28
+MAXIMUM_SCOPES = 29
 
 def doRequestOAuth(login_hint=None):
   def _checkMakeScopesList(scopes):
