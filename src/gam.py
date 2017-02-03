@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.11.04'
+__version__ = u'4.11.05'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -7966,6 +7966,10 @@ def doGetUserInfo(user_email=None):
     print u'Is a Super Admin: %s' % user[u'isAdmin']
   if u'isDelegatedAdmin' in user:
     print u'Is Delegated Admin: %s' % user[u'isDelegatedAdmin']
+  if u'isEnrolledIn2Sv' in user:
+    print u'2-step enrolled: %s' % user[u'isEnrolledIn2Sv']
+  if u'isEnforcedIn2Sv' in user:
+    print u'2-step enforced: %s' % user[u'isEnforcedIn2Sv']
   if u'agreedToTerms' in user:
     print u'Has Agreed to Terms: %s' % user[u'agreedToTerms']
   if u'ipWhitelisted' in user:
@@ -9088,6 +9092,8 @@ USER_ARGUMENT_TO_PROPERTY_MAP = {
   u'ipwhitelisted': [u'ipWhitelisted',],
   u'isadmin': [u'isAdmin', u'isDelegatedAdmin',],
   u'isdelegatedadmin': [u'isAdmin', u'isDelegatedAdmin',],
+  u'is2svenforced': [u'isEnforcedIn2Sv',],
+  u'is2svenrolled': [u'isEnrolledIn2Sv',],
   u'ismailboxsetup': [u'isMailboxSetup',],
   u'lastlogintime': [u'lastLoginTime',],
   u'lastname': [u'name.familyName',],
@@ -10482,7 +10488,7 @@ def run_batch(items):
       pool = Pool(processes=num_worker_threads)
       sys.stderr.write(u'done with commit-batch\n')
       continue
-    pool.apply_async(ProcessGAMCommandNoQueue, [item])
+    pool.apply_async(ProcessGAMCommandMulti, [item])
   pool.close()
   pool.join()
 
@@ -10559,7 +10565,7 @@ def resetDefaultEncodingToUTF8():
     if hasattr(sys, u'setdefaultencoding'):
       sys.setdefaultencoding(u'UTF-8')
 
-def ProcessGAMCommandNoQueue(args):
+def ProcessGAMCommandMulti(args):
   resetDefaultEncodingToUTF8()
   ProcessGAMCommand(args)
 
