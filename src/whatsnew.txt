@@ -1,6 +1,12 @@
 4.11.05
 
-Added suport for reporting user's two step verification status.
+Added support for reporting user's two step verification status.
+Added S/MIME support thanks to Jay.
+    gam <UserTypeEntity> add smime file <FileName> [password <Password>] [sendas|sendasemail <EmailAddress>] [default]
+    gam <UserTypeEntity> update smime [id <SmimeID>] [sendas|sendasemail <EmailAddress>] [default]
+    gam <UserTypeEntity> delete smime [id <SmimeID>] [sendas|sendasemail <EmailAddress>]
+    gam <UserTypeEntity> show smime [primaryonly]
+    gam <UserTypeEntity> print smime [todrive] [primaryonly]
 
 4.11.04
 
