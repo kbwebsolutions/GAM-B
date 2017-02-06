@@ -11110,7 +11110,7 @@ def ProcessGAMCommand(args):
         showDriveFileRevisions(users)
       elif showWhat == u'sendas':
         printShowSendAs(users, False)
-      elif showWhat == u'smime':
+      elif showWhat in [u'smime', u'smimes']:
         printShowSmime(users, False)
       elif showWhat == u'gmailprofile':
         showGmailProfile(users)
@@ -11164,7 +11164,7 @@ def ProcessGAMCommand(args):
         printShowForwardingAddresses(users, True)
       elif printWhat == u'sendas':
         printShowSendAs(users, True)
-      elif printWhat == u'smime':
+      elif printWhat in [u'smime', u'smimes']:
         printShowSmime(users, True)
       elif printWhat in [u'token', u'tokens', u'oauth', u'3lo']:
         printShowTokens(5, u'users', users, True)
