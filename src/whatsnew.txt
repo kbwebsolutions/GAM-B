@@ -1,6 +1,10 @@
-4.11.06
+4.11.07
 
 G Suite Enterprise SKU changed from Google-Apps-Enterprise to 1010020020.
+
+4.11.06
+
+Sort columns in gam report users.
 
 4.11.05
 
