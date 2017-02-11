@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.11.07'
+__version__ = u'4.11.08'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -5047,31 +5047,51 @@ def getImap(users):
         print u'User: {0}, IMAP Enabled: {1} ({2}/{3})'.format(user, enabled, i, count)
 
 SKUS = {
-  u'Google-Apps-For-Business': {u'product': u'Google-Apps', u'aliases': [u'gafb', u'gafw', u'basic', u'gsuite-basic']},
-  u'Google-Apps-For-Postini': {u'product': u'Google-Apps', u'aliases': [u'gams', u'postini', u'gsuite-gams']},
-  u'Google-Apps-Lite': {u'product': u'Google-Apps', u'aliases': [u'gal', u'lite', u'gsuite-lite']},
-  u'Google-Apps-Unlimited': {u'product': u'Google-Apps', u'aliases': [u'gau', u'unlimited', u'gsuite-business']},
-  u'1010020020': {u'product': u'Google-Apps', u'aliases': [u'gae', u'enterprise', u'gsuite-enterprise']},
-  u'Google-Drive-storage-20GB': {u'product': u'Google-Drive-storage', u'aliases': [u'drive-20gb', u'drive20gb', u'20gb']},
-  u'Google-Drive-storage-50GB': {u'product': u'Google-Drive-storage', u'aliases': [u'drive-50gb', u'drive50gb', u'50gb']},
-  u'Google-Drive-storage-200GB': {u'product': u'Google-Drive-storage', u'aliases': [u'drive-200gb', u'drive200gb', u'200gb']},
-  u'Google-Drive-storage-400GB': {u'product': u'Google-Drive-storage', u'aliases': [u'drive-400gb', u'drive400gb', u'400gb']},
-  u'Google-Drive-storage-1TB': {u'product': u'Google-Drive-storage', u'aliases': [u'drive-1tb', u'drive1tb', u'1tb']},
-  u'Google-Drive-storage-2TB': {u'product': u'Google-Drive-storage', u'aliases': [u'drive-2tb', u'drive2tb', u'2tb']},
-  u'Google-Drive-storage-4TB': {u'product': u'Google-Drive-storage', u'aliases': [u'drive-4tb', u'drive4tb', u'4tb']},
-  u'Google-Drive-storage-8TB': {u'product': u'Google-Drive-storage', u'aliases': [u'drive-8tb', u'drive8tb', u'8tb']},
-  u'Google-Drive-storage-16TB': {u'product': u'Google-Drive-storage', u'aliases': [u'drive-16tb', u'drive16tb', u'16tb']},
-  u'Google-Vault': {u'product': u'Google-Vault', u'aliases': [u'vault']},
-  u'Google-Vault-Former-Employee': {u'product': u'Google-Vault', u'aliases': [u'vfe']},
-  u'Google-Coordinate': {u'product': u'Google-Coordinate', u'aliases': [u'coordinate']},
-  u'Google-Chrome-Device-Management': {u'product': u'Google-Chrome-Device-Management', u'aliases': [u'chrome', u'cdm']}
+  u'Google-Apps-For-Business': {
+    u'product': u'Google-Apps', u'aliases': [u'gafb', u'gafw', u'basic', u'gsuitebasic'], u'displayName': u'G Suite Basic'},
+  u'Google-Apps-For-Government': {
+    u'product': u'Google-Apps', u'aliases': [u'gafg', u'gsuitegovernment', u'gsuitegov'], u'displayName': u'G Suite Government'},
+  u'Google-Apps-For-Postini': {
+    u'product': u'Google-Apps', u'aliases': [u'gams', u'postini', u'gsuitegams', u'gsuitepostini', u'gsuitemessagesecurity'], u'displayName': u'G Suite Message Security'},
+  u'Google-Apps-Lite': {
+    u'product': u'Google-Apps', u'aliases': [u'gal', u'lite', u'gsuitelite'], u'displayName': u'G Suite Lite'},
+  u'Google-Apps-Unlimited': {
+    u'product': u'Google-Apps', u'aliases': [u'gau', u'unlimited', u'gsuitebusiness'], u'displayName': u'G Suite Business'},
+  u'1010020020': {
+    u'product': u'Google-Apps', u'aliases': [u'gae', u'enterprise', u'gsuiteenterprise'], u'displayName': u'G Suite Enterprise'},
+  u'Google-Drive-storage-20GB': {
+    u'product': u'Google-Drive-storage', u'aliases': [u'drive20gb', u'20gb', u'googledrivestorage20gb'], u'displayName': u'Google Drive Storage 20GB'},
+  u'Google-Drive-storage-50GB': {
+    u'product': u'Google-Drive-storage', u'aliases': [u'drive50gb', u'50gb', u'googledrivestorage50gb'], u'displayName': u'Google Drive Storage 50GB'},
+  u'Google-Drive-storage-200GB': {
+    u'product': u'Google-Drive-storage', u'aliases': [u'drive200gb', u'200gb', u'googledrivestorage200gb'], u'displayName': u'Google Drive Storage 200GB'},
+  u'Google-Drive-storage-400GB': {
+    u'product': u'Google-Drive-storage', u'aliases': [u'drive400gb', u'400gb', u'googledrivestorage400gb'], u'displayName': u'Google Drive Storage 400GB'},
+  u'Google-Drive-storage-1TB': {
+    u'product': u'Google-Drive-storage', u'aliases': [u'drive1tb', u'1tb', u'googledrivestorage1tb'], u'displayName': u'Google Drive Storage 1TB'},
+  u'Google-Drive-storage-2TB': {
+    u'product': u'Google-Drive-storage', u'aliases': [u'drive2tb', u'2tb', u'googledrivestorage2tb'], u'displayName': u'Google Drive Storage 2TB'},
+  u'Google-Drive-storage-4TB': {
+    u'product': u'Google-Drive-storage', u'aliases': [u'drive4tb', u'4tb', u'googledrivestorage4tb'], u'displayName': u'Google Drive Storage 4TB'},
+  u'Google-Drive-storage-8TB': {
+    u'product': u'Google-Drive-storage', u'aliases': [u'drive8tb', u'8tb', u'googledrivestorage8tb'], u'displayName': u'Google Drive Storage 8TB'},
+  u'Google-Drive-storage-16TB': {
+    u'product': u'Google-Drive-storage', u'aliases': [u'drive16tb', u'16tb', u'googledrivestorage16tb'], u'displayName': u'Google Drive Storage 16TB'},
+  u'Google-Vault': {
+    u'product': u'Google-Vault', u'aliases': [u'vault', u'googlevault'], u'displayName': u'Google Vault'},
+  u'Google-Vault-Former-Employee': {
+    u'product': u'Google-Vault', u'aliases': [u'vfe', u'googlevaultformeremployee'], u'displayName': u'Google Vault Former Employee'},
+  u'Google-Coordinate': {
+    u'product': u'Google-Coordinate', u'aliases': [u'coordinate', u'googlecoordinate'], u'displayName': u'Google Coordinate'},
+  u'Google-Chrome-Device-Management': {
+    u'product': u'Google-Chrome-Device-Management', u'aliases': [u'chrome', u'cdm', u'googlechromedevicemanagement'], u'displayName': u'Google Chrome Device Management'}
   }
 
 def getProductAndSKU(sku):
   product = None
-  l_sku = sku.lower()
+  l_sku = sku.lower().replace(u'-', u'').replace(u' ', u'')
   for a_sku, sku_values in SKUS.items():
-    if l_sku == a_sku.lower() or l_sku in sku_values[u'aliases']:
+    if l_sku == a_sku.lower().replace(u'-', u'') or l_sku in sku_values[u'aliases']:
       sku = a_sku
       product = sku_values[u'product']
       break
@@ -5086,22 +5106,29 @@ def doLicense(users, operation):
   lic = buildGAPIObject(u'licensing')
   sku = sys.argv[5]
   productId, skuId = getProductAndSKU(sku)
+  i = 6
+  if len(sys.argv) > 6 and sys.argv[i].lower() in [u'product', u'productid']:
+    productId = sys.argv[i+1]
+    i += 2
   for user in users:
     if user.find(u'@') == -1:
       user = u'%s@%s' % (user, GC_Values[GC_DOMAIN])
     if operation == u'delete':
+      print u'Removing license %s from user %s' % (_skuIdToDisplayName(skuId), user)
       callGAPI(lic.licenseAssignments(), operation, soft_errors=True, productId=productId, skuId=skuId, userId=user)
     elif operation == u'insert':
+      print u'Adding license %s to user %s' % (_skuIdToDisplayName(skuId), user)
       callGAPI(lic.licenseAssignments(), operation, soft_errors=True, productId=productId, skuId=skuId, body={u'userId': user})
     elif operation == u'patch':
       try:
-        old_sku = sys.argv[6]
+        old_sku = sys.argv[i]
         if old_sku.lower() == u'from':
-          old_sku = sys.argv[7]
+          old_sku = sys.argv[i+1]
       except KeyError:
         print u'ERROR: You need to specify the user\'s old SKU as the last argument'
         sys.exit(2)
       _, old_sku = getProductAndSKU(old_sku)
+      print u'Changing user %s from license %s to %s' % (user, _skuIdToDisplayName(old_sku), _skuIdToDisplayName(skuId))
       callGAPI(lic.licenseAssignments(), operation, soft_errors=True, productId=productId, skuId=old_sku, userId=user, body={u'skuId': skuId})
 
 EMAILSETTINGS_POP_ENABLE_FOR_CHOICES_MAP = {
@@ -8289,7 +8316,13 @@ def doGetUserInfo(user_email=None):
       lbatch.add(lic.licenseAssignments().get(userId=user_email, productId=productId, skuId=skuId, fields=u'skuId'))
     lbatch.execute()
     for user_license in user_licenses:
-      print '  %s' % user_license
+      print '  %s' % _skuIdToDisplayName(user_license)
+
+def _skuIdToDisplayName(skuId):
+  try:
+    return SKUS[skuId][u'displayName']
+  except KeyError:
+    return skuId
 
 def doGetGroupInfo(group_name=None):
   cd = buildGAPIObject(u'directory')
@@ -10082,7 +10115,11 @@ def doPrintCrosDevices():
 
 def doPrintLicenses(return_list=False, skus=None):
   lic = buildGAPIObject(u'licensing')
-  products = [u'Google-Apps', u'Google-Vault']
+  products = []
+  for sku in SKUS.values():
+    if sku[u'product'] not in products:
+      products.append(sku[u'product'])
+  products.sort()
   licenses = []
   titles = [u'userId', u'productId', u'skuId']
   csvRows = []
@@ -10119,6 +10156,8 @@ def doPrintLicenses(return_list=False, skus=None):
       except (GAPI_invalid, GAPI_forbidden):
         pass
   for u_license in licenses:
+    if u'skuId' in u_license:
+      u_license[u'skuId'] = _skuIdToDisplayName(u_license[u'skuId'])
     a_license = {}
     for title in u_license:
       if title in [u'kind', u'etags', u'selfLink']:
