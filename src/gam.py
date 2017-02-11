@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.11.08'
+__version__ = u'4.11.09'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -5091,7 +5091,7 @@ def getProductAndSKU(sku):
   product = None
   l_sku = sku.lower().replace(u'-', u'').replace(u' ', u'')
   for a_sku, sku_values in SKUS.items():
-    if l_sku == a_sku.lower().replace(u'-', u'') or l_sku in sku_values[u'aliases']:
+    if l_sku == a_sku.lower().replace(u'-', u'') or l_sku in sku_values[u'aliases'] or l_sku == sku_values[u'displayName'].lower().replace(u' ', u''):
       sku = a_sku
       product = sku_values[u'product']
       break
@@ -8316,7 +8316,7 @@ def doGetUserInfo(user_email=None):
       lbatch.add(lic.licenseAssignments().get(userId=user_email, productId=productId, skuId=skuId, fields=u'skuId'))
     lbatch.execute()
     for user_license in user_licenses:
-      print '  %s' % _skuIdToDisplayName(user_license)
+      print '  %s: %s' % (user_license, _skuIdToDisplayName(user_license))
 
 def _skuIdToDisplayName(skuId):
   return SKUS[skuId][u'displayName'] if skuId in SKUS else skuId
@@ -10118,7 +10118,7 @@ def doPrintLicenses(return_list=False, skus=None):
       products.append(sku[u'product'])
   products.sort()
   licenses = []
-  titles = [u'userId', u'productId', u'skuId']
+  titles = [u'userId', u'productId', u'skuId', u'skuDisplay']
   csvRows = []
   todrive = False
   i = 3
@@ -10154,7 +10154,7 @@ def doPrintLicenses(return_list=False, skus=None):
         pass
   for u_license in licenses:
     if u'skuId' in u_license:
-      u_license[u'skuId'] = _skuIdToDisplayName(u_license[u'skuId'])
+      u_license[u'skuDisplay'] = _skuIdToDisplayName(u_license[u'skuId'])
     a_license = {}
     for title in u_license:
       if title in [u'kind', u'etags', u'selfLink']:
