@@ -1,6 +1,6 @@
 This document describes the GAM command line syntax in  modified BNF, see https://en.wikipedia.org/wiki/Backus-Naur_Form
 Items on the command line are space separated, when an actual space character is required, it will be indicated by <Space>.
-If an item contains spaces, it should be surrounded by " or '.
+If an item contains spaces, it should be surrounded by ".
 
 [] optional item
 () group items
@@ -13,7 +13,7 @@ Primitives
 <Number> ::= <Digit>+
 <Hex> ::= <Digit>|a|b|c|d|e|f|A|B|C|D|E|F
 <Space> ::= an actual space character
-<String> ::= a string of characters, surrounded by " or ' if it contains spaces
+<String> ::= a string of characters, surrounded by " if it contains spaces
 <TrueValues> ::= true|on|yes|enabled|1
 <FalseValues>= false|off|no|disabled|0
 <DataTransferService> ::= googledrive|gdrive|drive|"drive and docs"
@@ -162,7 +162,7 @@ Named items
 	teacherfolder|
 	teachergroupemail|
 	updatetime
-<CourseFieldNameList> ::= '<CourseFieldName>(,<CourseFieldName>)*'
+<CourseFieldNameList> ::= "<CourseFieldName>(,<CourseFieldName>)*"
 
 <CrOSFieldName> ::=
 	activetimeranges|timeranges|
@@ -346,35 +346,35 @@ Named Lists
 Lists can be in the following formats
 Items, separated by commas, without spaces or commas in the items themselves: item(,item)*
 Items, separated by spaces, without spaces or commas in the items themselves: "item( item)*"
-Items, separated by commas, with spaces or commas in the items themselves: "'it em'(,'it em')*"
-Items, separated by spaces, with spaces or commas in the items themselves: "'it em'( 'it em')*"
+Items, separated by commas, with spaces or commas in the items themselves: "'it em'(,'it,em')*"
+Items, separated by spaces, with spaces or commas in the items themselves: "'it em'( 'it,em')*"
 
-<ACLList> ::== '<ACLScope>(,<ACLScope>)*'
-<CalendarList> ::= '<CalendarItem>(,<CalendarItem>)*'
-<CourseAliasList> ::= '<CourseAlias>(,<CourseAlias>)*'
-<CourseIDList> ::= '<CourseID>(,<CourseID>)*'
-<CrOSFieldNameList> ::= '<CrOSFieldName>(,<CrOSFieldName>)*'
-<CrOSList> ::= '<CrOSID>(,<CrOSID>)*'
-<DriveFileList> ::= '<DriveFileItem>(,<DriveFileItem>)*'
-<EmailAddressList> ::= '<EmailAddress>(,<EmailAddress>)*'
-<EventIDList> ::= '<EventID>(,<EventID>)*'
-<FileFormatList> ::= '<FileFormat>(,<FileFormat)*'
-<FilterIDList> ::= '<FilterID>(,<FilterID>)*'
-<GroupFieldNameList> ::= '<GroupFieldName>(,<GroupFieldName>)*'
-<GroupList> ::= '<GroupItem>(,<GroupItem>)*'
-<GuardianStateList> ::= '<GuardianState>(,<GuardianState>)*'
-<LabelNameList> ::= '<LabelName>(,<LabelName)*'
-<MembersFieldNameList> ::= '<MembersFieldName>(,<MembersFieldName>)*'
-<MobileList> ::= '<MobileId>(,<MobileId>)*'
-<OrgUnitList> ::== '<OrgUnitPath>(,<OrgUnitPath>)*'
-<PrinterIDList> ::= '<PrinterID>(,<PrinterID>)*'
-<ProductIDList> ::= '(<ProductID>|SKUID>)(,<ProductID>|SKUID>)*'
-<PrintJobIDList> ::= '<PrintJobID>(,<PrintJobID>)*'
-<ResourceIDList> ::= '<ResourceID>(,<ResourceID>)*'
-<SKUIDList> ='<SKUID>(,<SKUID>)*'
-<SchemaNameList> ::= '<SchemaName>(,<SchemaName>)*'
-<UserFieldNameList> ::= '<UserFieldName>(,<UserFieldName>)*'
-<UserList> ::= '<UserItem>(,<UserItem>)*'
+<ACLList> ::== "<ACLScope>(,<ACLScope>)*"
+<CalendarList> ::= "<CalendarItem>(,<CalendarItem>)*"
+<CourseAliasList> ::= "<CourseAlias>(,<CourseAlias>)*"
+<CourseIDList> ::= "<CourseID>(,<CourseID>)*"
+<CrOSFieldNameList> ::= "<CrOSFieldName>(,<CrOSFieldName>)*"
+<CrOSList> ::= "<CrOSID>(,<CrOSID>)*"
+<DriveFileList> ::= "<DriveFileItem>(,<DriveFileItem>)*"
+<EmailAddressList> ::= "<EmailAddress>(,<EmailAddress>)*"
+<EventIDList> ::= "<EventID>(,<EventID>)*"
+<FileFormatList> ::= "<FileFormat>(,<FileFormat)*"
+<FilterIDList> ::= "<FilterID>(,<FilterID>)*"
+<GroupFieldNameList> ::= "<GroupFieldName>(,<GroupFieldName>)*"
+<GroupList> ::= "<GroupItem>(,<GroupItem>)*"
+<GuardianStateList> ::= "<GuardianState>(,<GuardianState>)*"
+<LabelNameList> ::= "<LabelName>(,<LabelName)*"
+<MembersFieldNameList> ::= "<MembersFieldName>(,<MembersFieldName>)*"
+<MobileList> ::= "<MobileId>(,<MobileId>)*"
+<OrgUnitList> ::== "<OrgUnitPath>(,<OrgUnitPath>)*"
+<PrinterIDList> ::= "<PrinterID>(,<PrinterID>)*"
+<ProductIDList> ::= "(<ProductID>|SKUID>)(,<ProductID>|SKUID>)*"
+<PrintJobIDList> ::= "<PrintJobID>(,<PrintJobID>)*"
+<ResourceIDList> ::= "<ResourceID>(,<ResourceID>)*"
+<SKUIDList> ="<SKUID>(,<SKUID>)*"
+<SchemaNameList> ::= "<SchemaName>(,<SchemaName>)*"
+<UserFieldNameList> ::= "<UserFieldName>(,<UserFieldName>)*"
+<UserList> ::= "<UserItem>(,<UserItem>)*"
 
 Specify a collection of ChromeOS devices by directly specifying them
 <CrOSTypeEntity> ::=
@@ -629,7 +629,7 @@ You can make substitutions in <GAMArgumentList> with values from the CSV file.
 An argument containing exactly ~xxx is replaced by the value of field xxx from the CSV file
 An argument containing instances of ~~xxx~~ has xxx replaced by the value of field xxx from the CSV file
 
-Example: gam csv Users.csv gam update user '~primaryEmail' address type work unstructured '~~Street~~, ~~City~~, ~~State~~ ~~ZIP~~'
+Example: gam csv Users.csv gam update user "~primaryEmail" address type work unstructured "~~Street~~, ~~City~~, ~~State~~ ~~ZIP~~"
 Each user (~primaryEmail, e.g. foo@bar.com) would have their work address updated
 
 gam create project [<EmailAddress>]
