@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.11.09'
+__version__ = u'4.11.10'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -5088,18 +5088,14 @@ SKUS = {
   }
 
 def getProductAndSKU(sku):
-  product = None
   l_sku = sku.lower().replace(u'-', u'').replace(u' ', u'')
   for a_sku, sku_values in SKUS.items():
     if l_sku == a_sku.lower().replace(u'-', u'') or l_sku in sku_values[u'aliases'] or l_sku == sku_values[u'displayName'].lower().replace(u' ', u''):
-      sku = a_sku
-      product = sku_values[u'product']
-      break
-  if not product:
-    try:
-      product = re.search(u'^([A-Z,a-z]*-[A-Z,a-z]*)', sku).group(1)
-    except AttributeError:
-      product = sku
+      return (sku_values[u'product'], a_sku)
+  try:
+    product = re.search(u'^([A-Z,a-z]*-[A-Z,a-z]*)', sku).group(1)
+  except AttributeError:
+    product = sku
   return (product, sku)
 
 def doLicense(users, operation):
