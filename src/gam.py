@@ -10299,8 +10299,7 @@ def getUsersToModify(entity_type=None, entity=None, silent=False, member_type=No
     if not silent:
       sys.stderr.write(u"done.\r\n")
   elif entity_type in [u'license', u'licenses', u'licence', u'licences']:
-    licenses = doPrintLicenses(return_list=True, skus=entity.split(u','))
-    users = licenses.keys()
+    users = doPrintLicenses(return_list=True, skus=shlexSplitList(entity)).keys()
   elif entity_type == u'file':
     users = []
     f = openFile(entity)
