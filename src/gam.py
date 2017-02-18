@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.11.11'
+__version__ = u'4.11.12'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -611,6 +611,22 @@ def normalizeStudentGuardianEmailAddressOrUID(emailAddressOrUID):
   if emailAddressOrUID.isdigit() or emailAddressOrUID == u'-':
     return emailAddressOrUID
   return normalizeEmailAddressOrUID(emailAddressOrUID)
+
+#SAFE_FILENAME_CHARS = u'-_.() {0}{1}'.format(string.ascii_letters, string.digits)
+#def cleanFilename(filename):
+#  return u''.join(c for c in filename if c in SAFE_FILENAME_CHARS)
+#
+UNSAFE_FILENAME_CHARS = u'\\/:'
+
+def cleanFilename(filename, cleanDiacriticals=False):
+  if cleanDiacriticals:
+    import unicodedata
+    nkfd_form = unicodedata.normalize(u'NFKD', filename)
+    filename = u''.join([c for c in nkfd_form if not unicodedata.combining(c)])
+  for ch in UNSAFE_FILENAME_CHARS:
+    filename = filename.replace(ch, u'_')
+  return filename
+
 #
 # Open a file
 #
@@ -3204,7 +3220,6 @@ def doPrintJobFetch():
     result = callGAPI(cp.printers(), u'get',
                       printerid=printerid)
     checkCloudPrintResult(result)
-  valid_chars = u'-_.() abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
   ssd = u'{"state": {"type": "DONE"}}'
   jobCount = offset = 0
   while True:
@@ -3232,7 +3247,7 @@ def doPrintJobFetch():
           continue
       fileUrl = job[u'fileUrl']
       jobid = job[u'id']
-      fileName = os.path.join(targetFolder, u'{0}-{1}'.format(u''.join(c if c in valid_chars else u'_' for c in job[u'title']), jobid))
+      fileName = os.path.join(targetFolder, u'{0}-{1}'.format(cleanFilename(job[u'title']), jobid))
       _, content = cp._http.request(uri=fileUrl, method='GET')
       if writeFile(fileName, content, continueOnError=True):
 #        ticket = callGAPI(cp.jobs(), u'getticket', jobid=jobid, use_cjt=True)
@@ -4710,7 +4725,6 @@ def downloadDriveFile(users):
   exportFormatName = u'openoffice'
   exportFormats = DOCUMENT_FORMATS_MAP[exportFormatName]
   targetFolder = GC_Values[GC_DRIVE_DIR]
-  safe_filename_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
   while i < len(sys.argv):
     myarg = sys.argv[i].lower().replace(u'_', u'')
     if myarg == u'id':
@@ -4795,8 +4809,7 @@ def downloadDriveFile(users):
       else:
         print convertUTF8(u'Skipping download of file {0}, Format not downloadable')
         continue
-      file_title = result[u'title']
-      safe_file_title = u''.join(c for c in file_title if c in safe_filename_chars)
+      safe_file_title = cleanFilename(result[u'title'])
       filename = os.path.join(targetFolder, safe_file_title)
       y = 0
       while True:
@@ -8119,7 +8132,7 @@ def doGetUserInfo(user_email=None):
       getLicenses = False
       i += 1
     elif myarg in [u'sku', u'skus']:
-      skus = sys.argv[i+1].replace(u',', u' ').split()
+      skus = shlexSplitList(sys.argv[i+1])
       i += 2
     elif myarg == u'noschemas':
       getSchemas = False
@@ -10126,10 +10139,10 @@ def doPrintLicenses(return_list=False, skus=None):
         todrive = True
         i += 1
       elif sys.argv[i].lower() in [u'products', u'product']:
-        products = sys.argv[i+1].replace(u',', u' ').split()
+        products = shlexSplitList(sys.argv[i+1])
         i += 2
       elif sys.argv[i].lower() in [u'sku', u'skus']:
-        skus = sys.argv[i+1].replace(u',', u' ').split()
+        skus = shlexSplitList(sys.argv[i+1])
         i += 2
       else:
         print u'ERROR: %s is not a valid argument for "gam print licenses"' % sys.argv[i]
@@ -10218,6 +10231,13 @@ def doPrintResourceCalendars():
       resUnit[fieldsTitles[field]] = resource.get(field, u'')
     csvRows.append(resUnit)
   writeCSVfile(csvRows, titles, u'Resources', todrive)
+
+def shlexSplitList(entity, dataDelimiter=' ,'):
+  import shlex
+  lexer = shlex.shlex(entity, posix=True)
+  lexer.whitespace = dataDelimiter
+  lexer.whitespace_split = True
+  return list(lexer)
 
 def getUsersToModify(entity_type=None, entity=None, silent=False, member_type=None, checkNotSuspended=False, groupUserMembersOnly=True):
   got_uids = False
