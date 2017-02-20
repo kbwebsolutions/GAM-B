@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.12.00'
+__version__ = u'4.12.01'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -10809,25 +10809,36 @@ def ProcessGAMCommand(args):
       i = 2
       filename = sys.argv[i]
       i, encoding = getCharSet(i+1)
+      items = []
       f = openFile(filename)
       batchFile = UTF8Recoder(f, encoding) if encoding != u'utf-8' else f
-      items = []
+      errors = 0
       for line in batchFile:
-        argv = shlex.split(line)
-        if not argv:
+        try:
+          argv = shlex.split(line)
+        except ValueError as e:
+          sys.stderr.write(convertUTF8(u'Command: >>>{0}<<<\n'.format(line.strip())))
+          sys.stderr.write(u'{0}{1}\n'.format(ERROR_PREFIX, e.message))
+          errors += 1
           continue
-        cmd = argv[0].strip().lower()
-        if (not cmd) or cmd.startswith(u'#') or ((len(argv) == 1) and (cmd != u'commit-batch')):
-          continue
-        if cmd == u'gam':
-          items.append([arg.encode(GM_Globals[GM_SYS_ENCODING]) for arg in argv])
-        elif cmd == u'commit-batch':
-          items.append([cmd])
-        else:
-          print u'ERROR: "%s" is not a valid gam command' % line.strip()
+        if len(argv) > 0:
+          cmd = argv[0].strip().lower()
+          if (not cmd) or cmd.startswith(u'#'):
+            continue
+          if cmd == u'gam':
+            items.append([arg.encode(GM_Globals[GM_SYS_ENCODING]) for arg in argv])
+          elif cmd == u'commit-batch':
+            items.append([cmd])
+          else:
+            sys.stderr.write(convertUTF8(u'Command: >>>{0}<<<\n'.format(line.strip())))
+            sys.stderr.write(u'{0}Invalid: Expected <gam|commit-batch>\n'.format(ERROR_PREFIX))
+            errors += 1
       closeFile(f)
-      run_batch(items)
-      sys.exit(0)
+      if errors == 0:
+        run_batch(items)
+        sys.exit(0)
+      else:
+        sys.exit(2)
     elif command == u'csv':
       if httplib2.debuglevel > 0:
         print u'Sorry, CSV commands are not compatible with debug. Delete debug.gam and try again.'

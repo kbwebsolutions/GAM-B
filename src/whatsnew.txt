@@ -1,3 +1,7 @@
+4.12.01
+
+Handle unbalanced quotes errors in gam batch.
+
 4.12.00
 
 Fix control-C handling in gam batch/csv.
