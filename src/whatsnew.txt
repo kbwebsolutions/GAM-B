@@ -1,3 +1,13 @@
+4.12.00
+
+Fix control-C handling in gam batch/csv.
+
+The elements of a <ProductIDList> or <SKUIDList> must be separated by commas not spaces; this applies to gam print licenses, gam info user, gam print users
+and gam licenses <SKUIDLIst> <Command> ...
+
+Added LicensesDisplay column to CSV file for gam print users licenses to show descriptive name of license SKU.
+The Licenses column still displays the actual SKU.
+
 4.11.12
 
 Ease restrictions on valid filename characters in get drivefile and printjob fetch; "\", "/" and ":" will be replaced by "_",
@@ -15,6 +25,7 @@ Additional license SKU cleanup.
 4.11.09
 
 Added skuDisplay column to CSV file for gam print licenses to show descriptive name of license SKU.
+The skuId column still displays the actual SKU.
 
 4.11.08
 

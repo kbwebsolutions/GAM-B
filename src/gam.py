@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.11.12'
+__version__ = u'4.12.00'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -42,6 +42,7 @@ import mimetypes
 import platform
 import random
 import re
+import signal
 import socket
 import StringIO
 
@@ -7382,12 +7383,14 @@ and accept the Terms of Service (ToS). As soon as you've accepted the ToS popup,
         callGAPI(serveman.services(), u'enable', throw_reasons=[u'failedPrecondition', u'forbidden'],
                  serviceName=api, body={u'consumerId': project_name})
         break
-      except (GAPI_failedPrecondition, GAPI_forbidden) as e:
+      except GAPI_failedPrecondition as e:
         print u'\nThere was an error enabling %s. Please resolve error as described below:' % api
         print u'%s\n' % e.message
-        if e.message.find(u'permission') != -1:
-          break
         raw_input(u'Press enter once resolved and we will try enabling the API again.')
+      except GAPI_forbidden as e:
+        print u'\nThere was an error enabling %s.' % api
+        print u'%s\n' % e.message
+        break
 
   iam = googleapiclient.discovery.build(u'iam', u'v1', http=http, cache_discovery=False)
   print u'Creating Service Account'
@@ -8132,7 +8135,7 @@ def doGetUserInfo(user_email=None):
       getLicenses = False
       i += 1
     elif myarg in [u'sku', u'skus']:
-      skus = shlexSplitList(sys.argv[i+1])
+      skus = sys.argv[i+1].split(u',')
       i += 2
     elif myarg == u'noschemas':
       getSchemas = False
@@ -9459,11 +9462,14 @@ def doPrintUsers():
       user.update(Groups=grouplist)
       user_count += 1
   if getLicenseFeed:
-    titles.append(u'Licenses')
+    titles.extend([u'Licenses', u'LicensesDisplay'])
     licenses = doPrintLicenses(return_list=True)
     if licenses:
       for user in csvRows:
-        user[u'Licenses'] = u' '.join(licenses.get(user[u'primaryEmail'].lower(), []))
+        u_licenses = licenses.get(user[u'primaryEmail'].lower())
+        if u_licenses:
+          user[u'Licenses'] = u','.join(u_licenses)
+          user[u'LicensesDisplay'] = u','.join([_skuIdToDisplayName(skuId) for skuId in u_licenses])
   writeCSVfile(csvRows, titles, u'Users', todrive)
 
 GROUP_ARGUMENT_TO_PROPERTY_TITLE_MAP = {
@@ -10139,10 +10145,10 @@ def doPrintLicenses(return_list=False, skus=None):
         todrive = True
         i += 1
       elif sys.argv[i].lower() in [u'products', u'product']:
-        products = shlexSplitList(sys.argv[i+1])
+        products = sys.argv[i+1].split(u',')
         i += 2
       elif sys.argv[i].lower() in [u'sku', u'skus']:
-        skus = shlexSplitList(sys.argv[i+1])
+        skus = sys.argv[i+1].split(u',')
         i += 2
       else:
         print u'ERROR: %s is not a valid argument for "gam print licenses"' % sys.argv[i]
@@ -10232,13 +10238,6 @@ def doPrintResourceCalendars():
     csvRows.append(resUnit)
   writeCSVfile(csvRows, titles, u'Resources', todrive)
 
-def shlexSplitList(entity, dataDelimiter=' ,'):
-  import shlex
-  lexer = shlex.shlex(entity, posix=True)
-  lexer.whitespace = dataDelimiter
-  lexer.whitespace_split = True
-  return list(lexer)
-
 def getUsersToModify(entity_type=None, entity=None, silent=False, member_type=None, checkNotSuspended=False, groupUserMembersOnly=True):
   got_uids = False
   if entity_type is None:
@@ -10319,7 +10318,7 @@ def getUsersToModify(entity_type=None, entity=None, silent=False, member_type=No
     if not silent:
       sys.stderr.write(u"done.\r\n")
   elif entity_type in [u'license', u'licenses', u'licence', u'licences']:
-    users = doPrintLicenses(return_list=True, skus=shlexSplitList(entity)).keys()
+    users = doPrintLicenses(return_list=True, skus=entity.split(u',')).keys()
   elif entity_type == u'file':
     users = []
     f = openFile(entity)
@@ -10679,23 +10678,44 @@ gam create project
   except httplib2.CertificateValidationUnsupported:
     noPythonSSLExit()
 
+def init_gam_worker():
+  signal.signal(signal.SIGINT, signal.SIG_IGN)
+
 def run_batch(items):
   from multiprocessing import Pool
   if not items:
     return
   num_worker_threads = min(len(items), GC_Values[GC_NUM_THREADS])
-  pool = Pool(processes=num_worker_threads)
+  pool = Pool(num_worker_threads, init_gam_worker)
   sys.stderr.write(u'Using %s processes...\n' % num_worker_threads)
-  for item in items:
-    if item[0] == u'commit-batch':
-      sys.stderr.write(u'commit-batch - waiting for running processes to finish before proceeding...')
-      pool.close()
-      pool.join()
-      pool = Pool(processes=num_worker_threads)
-      sys.stderr.write(u'done with commit-batch\n')
-      continue
-    pool.apply_async(ProcessGAMCommandMulti, [item])
-  pool.close()
+  try:
+    results = []
+    for item in items:
+      if item[0] == u'commit-batch':
+        sys.stderr.write(u'commit-batch - waiting for running processes to finish before proceeding...')
+        pool.close()
+        pool.join()
+        pool = Pool(num_worker_threads, init_gam_worker)
+        sys.stderr.write(u'done with commit-batch\n')
+        continue
+      results.append(pool.apply_async(ProcessGAMCommandMulti, [item]))
+    pool.close()
+    num_total = len(results)
+    i = 1
+    while True:
+      num_done = 0
+      for r in results:
+        if r.ready():
+          num_done += 1
+      if num_done == num_total:
+        break
+      i += 1
+      if i == 20:
+        print u'Finished %s of %s processes.' % (num_done, num_total)
+        i = 1
+      time.sleep(1)
+  except KeyboardInterrupt:
+    pool.terminate()
   pool.join()
 
 def runCmdForUsers(cmd, users, **kwargs):
