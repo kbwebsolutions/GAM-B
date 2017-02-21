@@ -1,6 +1,7 @@
 4.12.01
 
 Handle unbalanced quotes errors in gam batch.
+If errors are encountered a batch file, none of the commands will be executed.
 
 4.12.00
 

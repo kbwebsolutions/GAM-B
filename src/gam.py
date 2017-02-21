@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.12.01'
+__version__ = u'4.12.02'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -430,6 +430,9 @@ def dehtml(text):
     print_exc(file=sys.stderr)
     return text
 
+def singularPlural(word, pluralSuffix, count):
+  return word if count == 1 else word+pluralSuffix
+
 def indentMultiLineText(message, n=0):
   return message.replace(u'\n', u'\n{0}'.format(u' '*n)).rstrip()
 
@@ -613,21 +616,10 @@ def normalizeStudentGuardianEmailAddressOrUID(emailAddressOrUID):
     return emailAddressOrUID
   return normalizeEmailAddressOrUID(emailAddressOrUID)
 
-#SAFE_FILENAME_CHARS = u'-_.() {0}{1}'.format(string.ascii_letters, string.digits)
-#def cleanFilename(filename):
-#  return u''.join(c for c in filename if c in SAFE_FILENAME_CHARS)
-#
-UNSAFE_FILENAME_CHARS = u'\\/:'
-
-def cleanFilename(filename, cleanDiacriticals=False):
-  if cleanDiacriticals:
-    import unicodedata
-    nkfd_form = unicodedata.normalize(u'NFKD', filename)
-    filename = u''.join([c for c in nkfd_form if not unicodedata.combining(c)])
-  for ch in UNSAFE_FILENAME_CHARS:
+def cleanFilename(filename):
+  for ch in u'\\/:':
     filename = filename.replace(ch, u'_')
   return filename
-
 #
 # Open a file
 #
@@ -9463,7 +9455,7 @@ def doPrintUsers():
       user_count += 1
   if getLicenseFeed:
     titles.extend([u'Licenses', u'LicensesDisplay'])
-    licenses = doPrintLicenses(return_list=True)
+    licenses = doPrintLicenses(returnFields=u'userId,skuId')
     if licenses:
       for user in csvRows:
         u_licenses = licenses.get(user[u'primaryEmail'].lower())
@@ -10127,15 +10119,11 @@ def doPrintCrosDevices():
     sortCSVTitles([u'deviceId',], titles)
   writeCSVfile(csvRows, titles, u'CrOS', todrive)
 
-def doPrintLicenses(return_list=False, skus=None):
+def doPrintLicenses(returnFields=None, skus=None):
   lic = buildGAPIObject(u'licensing')
   products = []
-  for sku in SKUS.values():
-    if sku[u'product'] not in products:
-      products.append(sku[u'product'])
-  products.sort()
   licenses = []
-  if not return_list:
+  if not returnFields:
     titles = [u'userId', u'productId', u'skuId', u'skuDisplay']
     csvRows = []
     todrive = False
@@ -10153,32 +10141,48 @@ def doPrintLicenses(return_list=False, skus=None):
       else:
         print u'ERROR: %s is not a valid argument for "gam print licenses"' % sys.argv[i]
         sys.exit(2)
+    fields = u'nextPageToken,items(productId,skuId,userId)'
+  else:
+    fields = u'nextPageToken,items({0})'.format(returnFields)
   if skus:
     for sku in skus:
       product, sku = getProductAndSKU(sku)
       page_message = u'Got %%%%total_items%%%% Licenses for %s...\n' % sku
       try:
         licenses += callGAPIpages(lic.licenseAssignments(), u'listForProductAndSku', u'items', throw_reasons=[GAPI_INVALID, GAPI_FORBIDDEN], page_message=page_message,
-                                  customerId=GC_Values[GC_DOMAIN], productId=product, skuId=sku, fields=u'items(productId,skuId,userId),nextPageToken')
+                                  customerId=GC_Values[GC_DOMAIN], productId=product, skuId=sku, fields=fields)
       except (GAPI_invalid, GAPI_forbidden):
         pass
   else:
+    if not products:
+      for sku in SKUS.values():
+        if sku[u'product'] not in products:
+          products.append(sku[u'product'])
+      products.sort()
     for productId in products:
       page_message = u'Got %%%%total_items%%%% Licenses for %s...\n' % productId
       try:
         licenses += callGAPIpages(lic.licenseAssignments(), u'listForProduct', u'items', throw_reasons=[GAPI_INVALID, GAPI_FORBIDDEN], page_message=page_message,
-                                  customerId=GC_Values[GC_DOMAIN], productId=productId, fields=u'items(productId,skuId,userId),nextPageToken')
+                                  customerId=GC_Values[GC_DOMAIN], productId=productId, fields=fields)
       except (GAPI_invalid, GAPI_forbidden):
         pass
-  if return_list:
-    userSKUIds = {}
-    for u_license in licenses:
-      userId = u_license.get(u'userId', u'').lower()
-      skuId = u_license.get(u'skuId')
-      if userId and skuId:
-        userSKUIds.setdefault(userId, [])
-        userSKUIds[userId].append(skuId)
-    return userSKUIds
+  if returnFields:
+    if returnFields == u'userId':
+      userIds = []
+      for u_license in licenses:
+        userId = u_license.get(u'userId', u'').lower()
+        if userId:
+          userIds.append(userId)
+      return userIds
+    else:
+      userSkuIds = {}
+      for u_license in licenses:
+        userId = u_license.get(u'userId', u'').lower()
+        skuId = u_license.get(u'skuId')
+        if userId and skuId:
+          userSkuIds.setdefault(userId, [])
+          userSkuIds[userId].append(skuId)
+      return userSkuIds
   for u_license in licenses:
     userId = u_license.get(u'userId', u'').lower()
     skuId = u_license.get(u'skuId', u'')
@@ -10318,7 +10322,7 @@ def getUsersToModify(entity_type=None, entity=None, silent=False, member_type=No
     if not silent:
       sys.stderr.write(u"done.\r\n")
   elif entity_type in [u'license', u'licenses', u'licence', u'licences']:
-    users = doPrintLicenses(return_list=True, skus=entity.split(u',')).keys()
+    users = doPrintLicenses(returnFields=u'userId', skus=entity.split(u','))
   elif entity_type == u'file':
     users = []
     f = openFile(entity)
@@ -10692,11 +10696,11 @@ def run_batch(items):
     results = []
     for item in items:
       if item[0] == u'commit-batch':
-        sys.stderr.write(u'commit-batch - waiting for running processes to finish before proceeding...')
+        sys.stderr.write(u'commit-batch - waiting for running processes to finish before proceeding\n')
         pool.close()
         pool.join()
         pool = Pool(num_worker_threads, init_gam_worker)
-        sys.stderr.write(u'done with commit-batch\n')
+        sys.stderr.write(u'commit-batch - running processes finished, proceeding\n')
         continue
       results.append(pool.apply_async(ProcessGAMCommandMulti, [item]))
     pool.close()
@@ -10809,9 +10813,9 @@ def ProcessGAMCommand(args):
       i = 2
       filename = sys.argv[i]
       i, encoding = getCharSet(i+1)
-      items = []
       f = openFile(filename)
       batchFile = UTF8Recoder(f, encoding) if encoding != u'utf-8' else f
+      items = []
       errors = 0
       for line in batchFile:
         try:
@@ -10823,7 +10827,7 @@ def ProcessGAMCommand(args):
           continue
         if len(argv) > 0:
           cmd = argv[0].strip().lower()
-          if (not cmd) or cmd.startswith(u'#'):
+          if (not cmd) or cmd.startswith(u'#') or ((len(argv) == 1) and (cmd != u'commit-batch')):
             continue
           if cmd == u'gam':
             items.append([arg.encode(GM_Globals[GM_SYS_ENCODING]) for arg in argv])
@@ -10838,6 +10842,7 @@ def ProcessGAMCommand(args):
         run_batch(items)
         sys.exit(0)
       else:
+        sys.stderr.write(u'{0}batch file: {1}, not processed, {2} {3}\n'.format(ERROR_PREFIX, filename, errors, singularPlural(u'error', u's', errors)))
         sys.exit(2)
     elif command == u'csv':
       if httplib2.debuglevel > 0:
