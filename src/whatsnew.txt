@@ -1,3 +1,26 @@
+4.12.03
+
+Anywhere you can specify todrive, there are additional subarguments following the todrive argument that let you title the file,
+direct the uploaded file to a particular user and location and add a timestamp to the file title.
+    <ToDriveAttributes> ::=
+	(tdtitle <String>)|(tduser <EmailAddress>)|(tdparent id:<DriveFolderID>|<DriveFolderName>)|(tdtimestamp <Boolean> [tddaysoffset <Number>] [tdhoursoffset <Number])
+The tdtitle argument specifies the title for the uploaded file, if not specified, the Gam default title is used.
+The tduser argument specifies the user to receive the uploaded file; if not specified, the user named in oauth2.txt receives the file.
+The tdparent argument specifies the an existing parent folder for the uploaded file; if not specified, the root folder is used.
+The tdtimestamp argument specifies whether a timestamp (of the time the file is uploaded to Google) will be added to the title of the uploaded file.
+The tddaysoffset and tdhoursoffset arguments let you specify values that subtract time from the timestamp, they default to 0.
+A possible use for these values is as documentation to reflect the end of the time period that the uploaded report covers.
+Example: generate a list of user IDs and names, title the file "User IDs and Names", upload it to the "GAM Reports" folder of usermgr@domain.com, add a timestamp to the title.
+    gam print users todrive tdtitle "User IDs and Names" tduser usermgr@domain.com tdparent "GAM Reports" tdtimestamp true id name
+
+Note!! The tdparent option requires a scope that Gam currently doesn't authorize; you must do the following commands once to enable the scope.
+gam oauth delete
+gam oauth create
+
+4.12.02
+
+Optimize license processing.
+
 4.12.01
 
 Handle unbalanced quotes errors in gam batch.
@@ -156,7 +179,7 @@ Added fields <CourseFieldNameList> argument to gam print courses to allow select
 	teacherfolder|
 	teachergroupemail|
 	updatetime
-<CourseFieldNameList> ::= '<CourseFieldName>(,<CourseFieldName>)*'
+<CourseFieldNameList> ::= "<CourseFieldName>(,<CourseFieldName>)*"
 
 gam print courses [todrive] [teacher <UserItem>] [student <UserItem>] [alias|aliases] [delimiter <String>] [show all|students|teachers] [fields <CourseFieldNameList>]
 
@@ -524,7 +547,7 @@ Added argument to gam update group to allow removing members by role.
 gam update group <Group> clear [members] [managers] [owners]
 If no option follows clear, all members will removed.
 
-Changed gam print admins to include 'id:' in OrgUnitID column as with other gam print commands.
+Changed gam print admins to include "id:" in OrgUnitID column as with other gam print commands.
 
 Fixed GAM to handle both future date error messages in gam report
 
@@ -638,7 +661,7 @@ order, they will have to be updated. If your scripts process the CSV files by co
 Changed gam get drivefile to take a list of file formats rather than a single format. The first format in the list that is available will be used.
 Added drivefilename argument to allow downloading file by name.
 <FileFormat> ::= csv|html|txt|tsv|jpeg|jpg|png|svg|pdf|rtf|pptx|xlsx|docx|odt|ods|openoffice|ms|microsoft|micro$oft
-<FileFormatList> ::= '<FileFormat>(,<FileFormat)*'
+<FileFormatList> ::= "<FileFormat>(,<FileFormat)*"
 gam <UserTypeEntity> get drivefile (id <DriveFileID>)|(drivefilename <DriveFileName>)|(query <QueryDriveFile>) [format <FileFormatList>] [targetfolder <FilePath>] [revision <Number>]
 
 2016/08/01
@@ -810,7 +833,7 @@ GAM 3.0
   -Improved compatability with GAM commands from 2.55 and older.
   -Fixed undelete user command.
   -New "gam print group-members" command to print user membership of all groups.
-  -New "gam <some users> update user..." command to bulk modify settings for given users. For example, "gam all users update user changepassword on" will force password change for all users, 'gam group class-of-2013@acme.edu update user suspended on' will suspend all members of class-of-2013 group.
+  -New "gam <some users> update user..." command to bulk modify settings for given users. For example, "gam all users update user changepassword on" will force password change for all users, "gam group class-of-2013@acme.edu update user suspended on" will suspend all members of class-of-2013 group.
   -Optimizations which should result in modest improvements to GAM startup time and performance.
 
 GAM 2.994

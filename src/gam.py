@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.12.02'
+__version__ = u'4.12.03'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -474,10 +474,10 @@ def noPythonSSLExit():
   systemErrorExit(8, MESSAGE_NO_PYTHON_SSL)
 
 def currentCount(i, count):
-  return u' ({0}/{1})'.format(i, count)
+  return u' ({0}/{1})'.format(i, count) if (count > 0) else u''
 
 def currentCountNL(i, count):
-  return u' ({0}/{1})\n'.format(i, count)
+  return u' ({0}/{1})\n'.format(i, count) if (count > 0) else u'\n'
 
 def entityServiceNotApplicableWarning(entityType, entityName, i, count):
   sys.stderr.write(u'{0}: {1}, Service not applicable/Does not exist{2}'.format(entityType, entityName, currentCountNL(i, count)))
@@ -1378,6 +1378,85 @@ Access to scopes:
 %s\n''' % (user_domain, service_account, ',\n'.join(all_scopes))
     sys.exit(int(not all_scopes_pass))
 
+def checkUserExists(cd, user, i=0, count=0):
+  user = normalizeEmailAddressOrUID(user)
+  try:
+    return callGAPI(cd.users(), u'get',
+                    throw_reasons=[GAPI_USER_NOT_FOUND, GAPI_BAD_REQUEST, GAPI_FORBIDDEN],
+                    userKey=user, fields=u'primaryEmail')[u'primaryEmail']
+  except (GAPI_userNotFound, GAPI_badRequest, GAPI_forbidden):
+    entityUnknownWarning(u'User', user, i, count)
+    return None
+
+def getTodriveParameters(i):
+  def invalidTodriveDestExit(entityType, message):
+    print u'ERROR: Invalid {0}: {1}, {2}'.format(entityType, todrive[u'parent'], message)
+    sys.exit(2)
+
+  todrive = {u'title': None, u'user': None, u'parent': u'root', u'timestamp': False, u'daysoffset': 0, u'hoursoffset': 0}
+  i += 1
+  while i < len(sys.argv):
+    myarg = sys.argv[i].lower()
+    if myarg == u'tdtitle':
+      todrive[u'title'] = sys.argv[i+1]
+      i += 2
+    elif myarg == u'tduser':
+      todrive[u'user'] = checkUserExists(buildGAPIObject(u'directory'), sys.argv[i+1])
+      if not todrive[u'user']:
+        print u'ERROR: User: {0}, Does not exist'.format(sys.argv[i+1])
+        sys.exit(2)
+      i += 2
+    elif myarg == u'tdparent':
+      todrive[u'parent'] = sys.argv[i+1]
+      i += 2
+    elif myarg == u'tdtimestamp':
+      if sys.argv[i+1].lower() in true_values:
+        todrive[u'timestamp'] = True
+      elif sys.argv[i+1].lower() in false_values:
+        todrive[u'timestamp'] = False
+      else:
+        print u'ERROR: Value for tdtimestamp must be true or false; got %s' % sys.argv[i+1]
+        sys.exit(2)
+      i += 2
+    elif myarg == u'tddaysoffset':
+      todrive[u'daysoffset'] = int(sys.argv[i+1])
+      i += 2
+    elif myarg == u'tdhoursoffset':
+      todrive[u'hoursoffset'] = int(sys.argv[i+1])
+      i += 2
+    else:
+      break
+  if todrive[u'parent'] == u'root':
+    todrive[u'parentId'] = u'root'
+  else:
+    if todrive['user']:
+      _, drive = buildDriveGAPIObject(todrive[u'user'])
+    else:
+      drive = buildGAPIObject(u'drive')
+    if todrive[u'parent'].startswith(u'id:'):
+      try:
+        result = callGAPI(drive.files(), u'get',
+                          throw_reasons=[GAPI_NOT_FOUND],
+                          fileId=todrive[u'parent'][3:], fields=u'id,mimeType')
+        if result[u'mimeType'] != MIMETYPE_GA_FOLDER:
+          invalidTodriveDestExit(u'Drive Folder ID', u'Not a Drive Folder')
+        todrive[u'parentId'] = result[u'id']
+      except GAPI_notFound:
+        invalidTodriveDestExit(u'Drive Folder ID', u'Not Found')
+    else:
+      try:
+        results = callGAPIpages(drive.files(), u'list', u'items',
+                                throw_reasons=[GAPI_INVALID],
+                                q=u"title = '{0}'".format(todrive[u'parent']), fields=u'nextPageToken,items(id,mimeType)', maxResults=1)
+        if not results:
+          invalidTodriveDestExit(u'Drive Folder Name', u'Not Found')
+        if results[0][u'mimeType'] != MIMETYPE_GA_FOLDER:
+          invalidTodriveDestExit(u'Drive Folder Name', u'Not a Drive Folder')
+        todrive[u'parentId'] = results[0][u'id']
+      except GAPI_invalid:
+        invalidTodriveDestExit(u'Drive Folder Name', u'Not Found')
+  return (i, todrive)
+
 def showReport():
 
   def _adjustDate(errMsg):
@@ -1584,7 +1663,7 @@ def gen_sha512_hash(password):
 def printShowDelegates(users, csvFormat):
   emailsettings = buildGAPIObject(u'email-settings')
   if csvFormat:
-    todrive = False
+    todrive = {}
     csvRows = []
     titles = [u'User', u'delegateName', u'delegateAddress', u'delegationStatus']
   else:
@@ -1596,8 +1675,7 @@ def printShowDelegates(users, csvFormat):
       csvStyle = True
       i += 1
     elif csvFormat and myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     else:
       print u'ERROR: %s is not a valid argument for "gam <users> show delegates"' % sys.argv[i]
       sys.exit(2)
@@ -1886,14 +1964,13 @@ def doDelDomainAlias():
 
 def doPrintDomains():
   cd = buildGAPIObject(u'directory')
-  todrive = False
+  todrive = {}
   titles = [u'domainName',]
   csvRows = []
   i = 3
   while i < len(sys.argv):
     if sys.argv[i].lower() == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     else:
       print u'ERROR: %s is not a valid argument for "gam print domains".' % sys.argv[i]
       sys.exit(2)
@@ -1929,14 +2006,13 @@ def doPrintDomains():
 
 def doPrintDomainAliases():
   cd = buildGAPIObject(u'directory')
-  todrive = False
+  todrive = {}
   titles = [u'domainAliasName',]
   csvRows = []
   i = 3
   while i < len(sys.argv):
     if sys.argv[i].lower() == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     else:
       print u'ERROR: %s is not a valid argument for "gam print domainaliases".' % sys.argv[i]
       sys.exit(2)
@@ -2005,15 +2081,14 @@ def doCreateAdmin():
 
 def doPrintAdminRoles():
   cd = buildGAPIObject(u'directory')
-  todrive = False
+  todrive = {}
   titles = [u'roleId', u'roleName', u'roleDescription', u'isSuperAdminRole', u'isSystemRole']
   fields = u'nextPageToken,items({0})'.format(u','.join(titles))
   csvRows = []
   i = 3
   while i < len(sys.argv):
     if sys.argv[i].lower() == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     else:
       print u'ERROR: %s is not a valid argument for "gam print adminroles".' % sys.argv[i]
       sys.exit(2)
@@ -2030,16 +2105,17 @@ def doPrintAdmins():
   cd = buildGAPIObject(u'directory')
   roleId = None
   userKey = None
-  todrive = False
+  todrive = {}
   fields = u'nextPageToken,items({0})'.format(u','.join([u'roleAssignmentId', u'roleId', u'assignedTo', u'scopeType', u'orgUnitId']))
   titles = [u'roleAssignmentId', u'roleId', u'role', u'assignedTo', u'assignedToUser', u'scopeType', u'orgUnitId', u'orgUnit']
   csvRows = []
   i = 3
   while i < len(sys.argv):
-    if sys.argv[i].lower() == u'user':
+    myarg = sys.argv[i].lower()
+    if myarg == u'user':
       userKey = sys.argv[i+1]
       i += 2
-    elif sys.argv[i].lower() == u'role':
+    elif myarg == u'role':
       role = sys.argv[i+1]
       if role[:4].lower() == u'uid:':
         roleId = role[4:]
@@ -2049,9 +2125,8 @@ def doPrintAdmins():
           print u'ERROR: %s is not a valid role' % role
           sys.exit(5)
       i += 2
-    elif sys.argv[i].lower() == u'todrive':
-      todrive = True
-      i += 1
+    elif myarg == u'todrive':
+      i, todrive = getTodriveParameters(i)
     else:
       print u'ERROR: %s is not a valid argument for "gam print admins".' % sys.argv[i]
       sys.exit(2)
@@ -2205,22 +2280,22 @@ def doPrintDataTransfers():
   newOwnerUserId = None
   oldOwnerUserId = None
   status = None
-  todrive = False
+  todrive = {}
   titles = [u'id',]
   csvRows = []
   while i < len(sys.argv):
-    if sys.argv[i].lower().replace(u'_', u'') in [u'olduser', u'oldowner']:
+    myarg = sys.argv[i].lower().replace(u'_', u'')
+    if myarg in [u'olduser', u'oldowner']:
       oldOwnerUserId = convertToUserID(sys.argv[i+1])
       i += 2
-    elif sys.argv[i].lower().replace(u'_', u'') in [u'newuser', u'newowner']:
+    elif myarg in [u'newuser', u'newowner']:
       newOwnerUserId = convertToUserID(sys.argv[i+1])
       i += 2
-    elif sys.argv[i].lower() == u'status':
+    elif myarg == u'status':
       status = sys.argv[i+1]
       i += 2
-    elif sys.argv[i].lower() == u'todrive':
-      todrive = True
-      i += 1
+    elif myarg == u'todrive':
+      i, todrive = getTodriveParameters(i)
     else:
       print u'ERROR: %s is not a valid argument for "gam print transfers"' % sys.argv[i]
       sys.exit(2)
@@ -2274,14 +2349,13 @@ def doPrintShowGuardians(csvFormat):
   itemName = 'Guardians'
   if csvFormat:
     csvRows = []
-    todrive = False
+    todrive = {}
     titles = [u'studentEmail', u'studentId', u'invitedEmailAddress', u'guardianId']
   i = 3
   while i < len(sys.argv):
     myarg = sys.argv[i].lower()
     if csvFormat and myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     elif myarg == u'invitedguardian':
       invitedEmailAddress = normalizeEmailAddressOrUID(sys.argv[i+1])
       i += 2
@@ -2530,7 +2604,7 @@ def doPrintCourses():
       j += 1
 
   croom = buildGAPIObject(u'classroom')
-  todrive = False
+  todrive = {}
   fieldsList = []
   skipFieldsList = []
   titles = [u'id',]
@@ -2550,8 +2624,7 @@ def doPrintCourses():
       studentId = sys.argv[i+1]
       i += 2
     elif myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     elif myarg in [u'alias', u'aliases']:
       showAliases = True
       i += 1
@@ -2615,7 +2688,7 @@ def doPrintCourses():
 
 def doPrintCourseParticipants():
   croom = buildGAPIObject(u'classroom')
-  todrive = False
+  todrive = {}
   titles = [u'courseId',]
   csvRows = []
   courses = []
@@ -2635,8 +2708,7 @@ def doPrintCourseParticipants():
       studentId = sys.argv[i+1]
       i += 2
     elif myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     elif myarg == u'show':
       showMembers = sys.argv[i+1].lower()
       if showMembers not in [u'all', u'students', u'teachers']:
@@ -2689,7 +2761,7 @@ PRINTJOBS_DEFAULT_MAX_RESULTS = 100
 
 def doPrintPrintJobs():
   cp = buildGAPIObject(u'cloudprint')
-  todrive = False
+  todrive = {}
   titles = [u'printerid', u'id']
   csvRows = []
   printerid = None
@@ -2705,8 +2777,7 @@ def doPrintPrintJobs():
   while i < len(sys.argv):
     myarg = sys.argv[i].lower().replace(u'_', u'')
     if myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     elif myarg in [u'olderthan', u'newerthan']:
       if myarg == u'olderthan':
         older_or_newer = u'older'
@@ -2797,7 +2868,7 @@ def doPrintPrintJobs():
 
 def doPrintPrinters():
   cp = buildGAPIObject(u'cloudprint')
-  todrive = False
+  todrive = {}
   titles = [u'id',]
   csvRows = []
   query = None
@@ -2806,21 +2877,21 @@ def doPrintPrinters():
   extra_fields = None
   i = 3
   while i < len(sys.argv):
-    if sys.argv[i].lower() == u'query':
+    myarg = sys.argv[i].lower()
+    if myarg == u'query':
       query = sys.argv[i+1]
       i += 2
-    elif sys.argv[i].lower() == u'type':
+    elif myarg == u'type':
       printer_type = sys.argv[i+1]
       i += 2
-    elif sys.argv[i].lower() == u'status':
+    elif myarg == u'status':
       connection_status = sys.argv[i+1]
       i += 2
-    elif sys.argv[i].lower().replace(u'_', u'') == u'extrafields':
+    elif myarg.replace(u'_', u'') == u'extrafields':
       extra_fields = sys.argv[i+1]
       i += 2
-    elif sys.argv[i].lower() == u'todrive':
-      todrive = True
-      i += 1
+    elif myarg == u'todrive':
+      i, todrive = getTodriveParameters(i)
     else:
       print u'ERROR: %s is not a valid argument for "gam print printers"' % sys.argv[i]
       sys.exit(2)
@@ -3833,15 +3904,14 @@ def infoCalendar(users):
 
 def printShowCalendars(users, csvFormat):
   if csvFormat:
-    todrive = False
+    todrive = {}
     titles = []
     csvRows = []
   i = 5
   while i < len(sys.argv):
     myarg = sys.argv[i].lower()
     if csvFormat and myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     else:
       print u'ERROR: %s is not a valid argument for "gam <users> %s calendars"' %  (myarg, [u'show', u'print'][csvFormat])
       sys.exit(2)
@@ -3890,12 +3960,11 @@ def showCalSettings(users):
         print u'  {0}: {1}'.format(attr, value)
 
 def printDriveSettings(users):
-  todrive = False
+  todrive = {}
   i = 5
   while i < len(sys.argv):
     if sys.argv[i].lower() == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     else:
       print u'ERROR: %s is not a valid argument for "gam <users> show drivesettings"' % sys.argv[i]
       sys.exit(2)
@@ -3934,7 +4003,7 @@ def printDriveSettings(users):
 def printDriveActivity(users):
   drive_ancestorId = u'root'
   drive_fileId = None
-  todrive = False
+  todrive = {}
   titles = [u'user.name', u'user.permissionId', u'target.id', u'target.name', u'target.mimeType']
   csvRows = []
   i = 5
@@ -3948,8 +4017,7 @@ def printDriveActivity(users):
       drive_ancestorId = sys.argv[i+1]
       i += 2
     elif activity_object == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     else:
       print u'ERROR: %s is not a valid argument for "gam <users> show driveactivity"' % sys.argv[i]
       sys.exit(2)
@@ -4206,7 +4274,7 @@ DRIVEFILE_ORDERBY_CHOICES_MAP = {
   }
 
 def printDriveFileList(users):
-  allfields = anyowner = todrive = False
+  allfields = anyowner = todrive = {}
   fieldsList = []
   fieldsTitles = {}
   labelsList = []
@@ -4218,8 +4286,7 @@ def printDriveFileList(users):
   while i < len(sys.argv):
     myarg = sys.argv[i].lower().replace(u'_', u'')
     if myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     elif myarg == u'orderby':
       fieldName = sys.argv[i+1].lower()
       i += 2
@@ -5358,7 +5425,7 @@ def deleteSendAs(users):
 
 def printShowSendAs(users, csvFormat):
   if csvFormat:
-    todrive = False
+    todrive = {}
     titles = [u'User', u'displayName', u'sendAsEmail', u'replyToAddress', u'isPrimary', u'isDefault', u'treatAsAlias', u'verificationStatus']
     csvRows = []
   formatSig = False
@@ -5366,8 +5433,7 @@ def printShowSendAs(users, csvFormat):
   while i < len(sys.argv):
     myarg = sys.argv[i].lower()
     if csvFormat and myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     elif not csvFormat and myarg == u'format':
       formatSig = True
       i += 1
@@ -5555,7 +5621,7 @@ def deleteSmime(users):
 
 def printShowSmime(users, csvFormat):
   if csvFormat:
-    todrive = False
+    todrive = {}
     titles = [u'User']
     csvRows = []
   primaryonly = False
@@ -5563,8 +5629,7 @@ def printShowSmime(users, csvFormat):
   while i < len(sys.argv):
     myarg = sys.argv[i].lower()
     if csvFormat and myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     elif myarg == u'primaryonly':
       primaryonly = True
       i += 1
@@ -5848,12 +5913,11 @@ def showLabels(users):
         print u''
 
 def showGmailProfile(users):
-  todrive = False
+  todrive = {}
   i = 6
   while i < len(sys.argv):
     if sys.argv[i].lower() == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     else:
       print u'ERROR: %s is not a valid argument for gam <users> show gmailprofile' % sys.argv[i]
       sys.exit(2)
@@ -5882,12 +5946,11 @@ def showGmailProfile(users):
   writeCSVfile(csvRows, titles, list_type=u'Gmail Profiles', todrive=todrive)
 
 def showGplusProfile(users):
-  todrive = False
+  todrive = {}
   i = 6
   while i < len(sys.argv):
     if sys.argv[i].lower() == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     else:
       print u'ERROR: %s is not a valid argument for gam <users> show gplusprofile' % sys.argv[i]
       sys.exit(2)
@@ -6249,15 +6312,14 @@ def deleteFilters(users):
 
 def printShowFilters(users, csvFormat):
   if csvFormat:
-    todrive = False
+    todrive = {}
     csvRows = []
     titles = [u'User', u'id']
   i = 5
   while i < len(sys.argv):
     myarg = sys.argv[i].lower()
     if csvFormat and myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     else:
       print u'ERROR: %s is not a valid argument for "gam <users> %s filter"' % (myarg, [u'show', u'print'][csvFormat])
       sys.exit(2)
@@ -6404,15 +6466,14 @@ def printShowForward(users, csvFormat):
     csvRows.append(row)
 
   if csvFormat:
-    todrive = False
+    todrive = {}
     csvRows = []
     titles = [u'User', u'forwardEnabled', u'forwardTo', u'disposition']
   i = 5
   while i < len(sys.argv):
     myarg = sys.argv[i].lower()
     if csvFormat and myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     else:
       print u'ERROR: %s is not a valid argument for "gam <users> %s forward"' % (myarg, [u'show', u'print'][csvFormat])
       sys.exit(2)
@@ -6469,15 +6530,14 @@ def deleteForwardingAddresses(users):
 
 def printShowForwardingAddresses(users, csvFormat):
   if csvFormat:
-    todrive = False
+    todrive = {}
     csvRows = []
     titles = [u'User', u'forwardingEmail', u'verificationStatus']
   i = 5
   while i < len(sys.argv):
     myarg = sys.argv[i].lower()
     if csvFormat and myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     else:
       print u'ERROR: %s is not a valid argument for "gam <users> %s forwardingaddresses"' % (myarg, [u'show', u'print'][csvFormat])
       sys.exit(2)
@@ -6788,15 +6848,14 @@ def _showSchema(schema):
 def doPrintShowUserSchemas(csvFormat):
   cd = buildGAPIObject(u'directory')
   if csvFormat:
-    todrive = False
+    todrive = {}
     csvRows = []
     titles = []
   i = 3
   while i < len(sys.argv):
     myarg = sys.argv[i].lower()
     if csvFormat and myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     else:
       print u'ERROR: %s is not a valid argument for "gam %s schemas"' % (myarg, [u'show', u'print'][csvFormat])
       sys.exit(2)
@@ -8944,15 +9003,14 @@ def printShowTokens(i, entityType, users, csvFormat):
 
   cd = buildGAPIObject(u'directory')
   if csvFormat:
-    todrive = False
+    todrive = {}
     titles = [u'user', u'clientId', u'displayText', u'anonymous', u'nativeApp', u'userKey', u'scopes']
     csvRows = []
   clientId = None
   while i < len(sys.argv):
     myarg = sys.argv[i].lower()
     if csvFormat and myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     elif myarg == u'clientid':
       clientId = commonClientIds(sys.argv[i+1])
       i += 2
@@ -9232,9 +9290,16 @@ def writeCSVfile(csvRows, titles, list_type, todrive):
     if cell_count > 500000 or columns > 256:
       print u'{0}{1}'.format(WARNING_PREFIX, MESSAGE_RESULTS_TOO_LARGE_FOR_GOOGLE_SPREADSHEET)
       convert = False
-    drive = buildGAPIObject(u'drive')
+    title = todrive[u'title'] or u'{0} - {1}'.format(GC_Values[GC_DOMAIN], list_type)
+    if todrive[u'timestamp']:
+      timestamp = datetime.datetime.now()+datetime.timedelta(days=-todrive[u'daysoffset'], hours=-todrive[u'hoursoffset'])
+      title += u' - '+timestamp.isoformat()
+    if todrive['user']:
+      _, drive = buildDriveGAPIObject(todrive[u'user'])
+    else:
+      drive = buildGAPIObject(u'drive')
     result = callGAPI(drive.files(), u'insert', convert=convert,
-                      body={u'description': u' '.join(sys.argv), u'title': u'%s - %s' % (GC_Values[GC_DOMAIN], list_type), u'mimeType': u'text/csv'},
+                      body={u'parents': [{u'id': todrive[u'parentId']}], u'description': u' '.join(sys.argv), u'title': title, u'mimeType': u'text/csv'},
                       media_body=googleapiclient.http.MediaInMemoryUpload(string_file.getvalue(), mimetype=u'text/csv'))
     file_url = result[u'alternateLink']
     if GC_Values[GC_NO_BROWSER]:
@@ -9325,7 +9390,7 @@ USER_ARGUMENT_TO_PROPERTY_MAP = {
 
 def doPrintUsers():
   cd = buildGAPIObject(u'directory')
-  todrive = False
+  todrive = {}
   fieldsList = []
   fieldsTitles = {}
   titles = []
@@ -9360,8 +9425,7 @@ def doPrintUsers():
         customFieldMask = sys.argv[i+1]
       i += 2
     elif myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     elif myarg in [u'deletedonly', u'onlydeleted']:
       deleted_only = True
       i += 1
@@ -9513,7 +9577,7 @@ def doPrintGroups():
   usedomain = usemember = None
   aliasDelimiter = u' '
   memberDelimiter = u'\n'
-  todrive = False
+  todrive = {}
   cdfieldsList = []
   gsfieldsList = []
   fieldsTitles = {}
@@ -9526,8 +9590,7 @@ def doPrintGroups():
   while i < len(sys.argv):
     myarg = sys.argv[i].lower()
     if myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     elif myarg == u'domain':
       usedomain = sys.argv[i+1].lower()
       customer = None
@@ -9727,7 +9790,7 @@ def doPrintOrgs():
   cd = buildGAPIObject(u'directory')
   listType = u'all'
   orgUnitPath = u"/"
-  todrive = False
+  todrive = {}
   fieldsList = []
   fieldsTitles = {}
   titles = []
@@ -9736,8 +9799,7 @@ def doPrintOrgs():
   while i < len(sys.argv):
     myarg = sys.argv[i].lower().replace(u'_', u'')
     if myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     elif myarg == u'toplevelonly':
       listType = u'children'
       i += 1
@@ -9775,7 +9837,7 @@ def doPrintOrgs():
 
 def doPrintAliases():
   cd = buildGAPIObject(u'directory')
-  todrive = False
+  todrive = {}
   titles = [u'Alias', u'Target', u'TargetType']
   userFields = [u'primaryEmail', u'aliases']
   groupFields = [u'email', u'aliases']
@@ -9784,8 +9846,7 @@ def doPrintAliases():
   while i < len(sys.argv):
     myarg = sys.argv[i].lower()
     if myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     elif myarg == u'shownoneditable':
       titles.insert(1, u'NonEditableAlias')
       userFields.append(u'nonEditableAliases')
@@ -9818,7 +9879,7 @@ def doPrintAliases():
 
 def doPrintGroupMembers():
   cd = buildGAPIObject(u'directory')
-  todrive = False
+  todrive = {}
   membernames = False
   customer = GC_Values[GC_CUSTOMER_ID]
   usedomain = None
@@ -9829,26 +9890,26 @@ def doPrintGroupMembers():
   groups_to_get = []
   i = 3
   while i < len(sys.argv):
-    if sys.argv[i].lower() == u'domain':
+    myarg = sys.argv[i].lower()
+    if myarg == u'domain':
       usedomain = sys.argv[i+1].lower()
       customer = None
       i += 2
-    elif sys.argv[i].lower() == u'todrive':
-      todrive = True
-      i += 1
-    elif sys.argv[i].lower() == u'member':
+    elif myarg == u'todrive':
+      i, todrive = getTodriveParameters(i)
+    elif myarg == u'member':
       usemember = sys.argv[i+1].lower()
       customer = None
       i += 2
-    elif sys.argv[i].lower() == u'fields':
+    elif myarg == u'fields':
       memberFieldsList = sys.argv[i+1].replace(u',', u' ').lower().split()
       fields = u'nextPageToken,members(%s)' % (','.join(memberFieldsList))
       i += 2
-    elif sys.argv[i].lower() == u'membernames':
+    elif myarg == u'membernames':
       membernames = True
       titles.append(u'name')
       i += 1
-    elif sys.argv[i].lower() == u'group':
+    elif myarg == u'group':
       group_email = sys.argv[i+1].lower()
       if group_email.find(u'@') == -1:
         group_email = u'%s@%s' % (group_email, GC_Values[GC_DOMAIN])
@@ -9910,7 +9971,7 @@ def doPrintGroupMembers():
 
 def doPrintMobileDevices():
   cd = buildGAPIObject(u'directory')
-  todrive = False
+  todrive = {}
   titles = [u'resourceId',]
   csvRows = []
   query = projection = orderBy = sortOrder = None
@@ -9921,8 +9982,7 @@ def doPrintMobileDevices():
       query = sys.argv[i+1]
       i += 2
     elif myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     elif myarg == u'orderby':
       orderBy = sys.argv[i+1].lower()
       allowed_values = [u'deviceid', u'email', u'lastsync', u'model', u'name', u'os', u'status', u'type']
@@ -9965,7 +10025,7 @@ def doPrintMobileDevices():
 
 def doPrintCrosDevices():
   cd = buildGAPIObject(u'directory')
-  todrive = False
+  todrive = {}
   fieldsList = []
   fieldsTitles = {}
   titles = []
@@ -9983,8 +10043,7 @@ def doPrintCrosDevices():
       query = sys.argv[i+1]
       i += 2
     elif myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     elif myarg == u'nolists':
       noLists = True
       selectActiveTimeRanges = selectRecentUsers = None
@@ -10126,16 +10185,16 @@ def doPrintLicenses(returnFields=None, skus=None):
   if not returnFields:
     titles = [u'userId', u'productId', u'skuId', u'skuDisplay']
     csvRows = []
-    todrive = False
+    todrive = {}
     i = 3
     while i < len(sys.argv):
-      if sys.argv[i].lower() == u'todrive':
-        todrive = True
-        i += 1
-      elif sys.argv[i].lower() in [u'products', u'product']:
+      myarg = sys.argv[i].lower()
+      if myarg == u'todrive':
+        i, todrive = getTodriveParameters(i)
+      elif myarg in [u'products', u'product']:
         products = sys.argv[i+1].split(u',')
         i += 2
-      elif sys.argv[i].lower() in [u'sku', u'skus']:
+      elif myarg in [u'sku', u'skus']:
         skus = sys.argv[i+1].split(u',')
         i += 2
       else:
@@ -10203,7 +10262,7 @@ RESCAL_ARGUMENT_TO_PROPERTY_MAP = {
 
 def doPrintResourceCalendars():
   cd = buildGAPIObject(u'directory')
-  todrive = False
+  todrive = {}
   fieldsList = []
   fieldsTitles = {}
   titles = []
@@ -10212,8 +10271,7 @@ def doPrintResourceCalendars():
   while i < len(sys.argv):
     myarg = sys.argv[i].lower()
     if myarg == u'todrive':
-      todrive = True
-      i += 1
+      i, todrive = getTodriveParameters(i)
     elif myarg == u'allfields':
       fieldsList = []
       fieldsTitles = {}
@@ -10504,9 +10562,9 @@ OAUTH2_SCOPES = [
   {u'name': u'Usage Reports API',
    u'subscopes': [],
    u'scopes': u'https://www.googleapis.com/auth/admin.reports.usage.readonly'},
-  {u'name': u'Drive API - create report docs only',
+  {u'name': u'Drive API - Admin user manage report documents in Google Drive',
    u'subscopes': [],
-   u'scopes': u'https://www.googleapis.com/auth/drive.file'},
+   u'scopes': u'https://www.googleapis.com/auth/drive'},
   {u'name': u'License Manager API',
    u'subscopes': [],
    u'scopes': u'https://www.googleapis.com/auth/apps.licensing'},
