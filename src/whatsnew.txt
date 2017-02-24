@@ -1,3 +1,12 @@
+4.12.04
+
+When todrive tdparent id:<DriveFolderID>|<DriveFolderName> is specified, in addition to checking that the parent is an existing folder, the folder is verified as being writable.
+
+Removed limit on number of scopes that can be authorized in gam oauth create. If the number of scopes selected is large, the authorization URL
+can not be shortened and a very long URL is displayed but the authorization still works.
+
+Added Admin Settings API support, this allows gam info customer/instance to show license count information.
+
 4.12.03
 
 Anywhere you can specify todrive, there are additional subarguments following the todrive argument that let you title the file,

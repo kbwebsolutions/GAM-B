@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.12.03'
+__version__ = u'4.12.04'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -977,14 +977,23 @@ def checkGAPIError(e, soft_errors=False, silent_errors=False, retryOnHttpError=F
   except ValueError:
     if (e.resp[u'status'] == u'503') and (e.content == u'Quota exceeded for the current request'):
       return (e.resp[u'status'], GAPI_QUOTA_EXCEEDED, e.content)
-    if retryOnHttpError:
+    if (e.resp[u'status'] == u'403') and (e.content.startswith(u'Request rate higher than configured')):
+      return (e.resp[u'status'], GAPI_QUOTA_EXCEEDED, e.content)
+    if (e.resp[u'status'] == u'403') and (u'Invalid domain.' in e.content):
+      error = {u'error': {u'code': 403, u'errors': [{u'reason': GAPI_NOT_FOUND, u'message': u'Domain not found'}]}}
+    elif (e.resp[u'status'] == u'400') and (u'InvalidSsoSigningKey' in e.content):
+      error = {u'error': {u'code': 400, u'errors': [{u'reason': GAPI_INVALID, u'message': u'InvalidSsoSigningKey'}]}}
+    elif (e.resp[u'status'] == u'400') and (u'UnknownError' in e.content):
+      error = {u'error': {u'code': 400, u'errors': [{u'reason': GAPI_INVALID, u'message': u'UnknownError'}]}}
+    elif retryOnHttpError:
       service._http.request.credentials.refresh(httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL]))
       return (-1, None, None)
-    if soft_errors:
+    elif soft_errors:
       if not silent_errors:
         stderrErrorMsg(e.content)
       return (0, None, None)
-    systemErrorExit(5, e.content)
+    else:
+      systemErrorExit(5, e.content)
   if u'error' in error:
     http_status = error[u'error'][u'code']
     try:
@@ -1162,6 +1171,7 @@ def callGAPIitems(service, function, items,
   return []
 
 API_VER_MAPPING = {
+  u'admin-settings': u'v2',
   u'appsactivity': u'v1',
   u'calendar': u'v3',
   u'classroom': u'v1',
@@ -1437,9 +1447,11 @@ def getTodriveParameters(i):
       try:
         result = callGAPI(drive.files(), u'get',
                           throw_reasons=[GAPI_NOT_FOUND],
-                          fileId=todrive[u'parent'][3:], fields=u'id,mimeType')
+                          fileId=todrive[u'parent'][3:], fields=u'id,mimeType,editable')
         if result[u'mimeType'] != MIMETYPE_GA_FOLDER:
           invalidTodriveDestExit(u'Drive Folder ID', u'Not a Drive Folder')
+        if not result[u'editable']:
+          invalidTodriveDestExit(u'Drive Folder ID', u'Not Writable')
         todrive[u'parentId'] = result[u'id']
       except GAPI_notFound:
         invalidTodriveDestExit(u'Drive Folder ID', u'Not Found')
@@ -1447,11 +1459,13 @@ def getTodriveParameters(i):
       try:
         results = callGAPIpages(drive.files(), u'list', u'items',
                                 throw_reasons=[GAPI_INVALID],
-                                q=u"title = '{0}'".format(todrive[u'parent']), fields=u'nextPageToken,items(id,mimeType)', maxResults=1)
+                                q=u"title = '{0}'".format(todrive[u'parent']), fields=u'nextPageToken,items(id,mimeType,editable)', maxResults=1)
         if not results:
           invalidTodriveDestExit(u'Drive Folder Name', u'Not Found')
         if results[0][u'mimeType'] != MIMETYPE_GA_FOLDER:
           invalidTodriveDestExit(u'Drive Folder Name', u'Not a Drive Folder')
+        if not results[0][u'editable']:
+          invalidTodriveDestExit(u'Drive Folder Name', u'Not Writable')
         todrive[u'parentId'] = results[0][u'id']
       except GAPI_invalid:
         invalidTodriveDestExit(u'Drive Folder Name', u'Not Found')
@@ -1894,8 +1908,40 @@ def doGetDomainAliasInfo():
   print_json(None, result)
 
 ADDRESS_FIELDS_PRINT_ORDER = [u'contactName', u'organizationName', u'addressLine1', u'addressLine2', u'addressLine3', u'locality', u'region', u'postalCode', u'countryCode']
+MAXIMUM_USERS_MAP = [u'maximumNumberOfUsers', u'Maximum Users']
+CURRENT_USERS_MAP = [u'currentNumberOfUsers', u'Current Users']
+DOMAIN_EDITION_MAP = [u'edition', u'Domain Edition']
+CUSTOMER_PIN_MAP = [u'customerPIN', u'Customer PIN']
+SINGLE_SIGN_ON_SETTINGS_MAP = [u'enableSSO', u'SSO Enabled',
+                               u'samlSignonUri', u'SSO Signon Page',
+                               u'samlLogoutUri', u'SSO Logout Page',
+                               u'changePasswordUri', u'SSO Password Page',
+                               u'ssoWhitelist', u'SSO Whitelist IPs',
+                               u'useDomainSpecificIssuer', u'SSO Use Domain Specific Issuer']
+SINGLE_SIGN_ON_SIGNING_KEY_MAP = [u'algorithm', u'SSO Key Algorithm',
+                                  u'format', u'SSO Key Format',
+                                  u'modulus', u'SSO Key Modulus',
+                                  u'exponent', u'SSO Key Exponent',
+                                  u'yValue', u'SSO Key yValue',
+                                  u'signingKey', u'Full SSO Key']
+
 
 def doGetCustomerInfo():
+  def _printAdminSetting(service, propertyTitleMap):
+    try:
+      result = callGAPI(service, u'get',
+                        throw_reasons=[GAPI_INVALID],
+                        domainName=GC_Values[GC_DOMAIN])
+      if result and (u'entry' in result) and (u'apps$property' in result[u'entry']):
+        for i in range(0, len(propertyTitleMap), 2):
+          asProperty = propertyTitleMap[i]
+          for entry in result[u'entry'][u'apps$property']:
+            if entry[u'name'] == asProperty:
+              print u'{0}: {1}'.format(propertyTitleMap[i+1], entry[u'value'])
+              break
+    except GAPI_invalid:
+      pass
+
   cd = buildGAPIObject(u'directory')
   customer_info = callGAPI(cd.customers(), u'get', customerKey=GC_Values[GC_CUSTOMER_ID])
   print u'Customer ID: %s' % customer_info[u'id']
@@ -1913,6 +1959,13 @@ def doGetCustomerInfo():
   if u'phoneNumber' in customer_info:
     print u'Phone: %s' % customer_info[u'phoneNumber']
   print u'Admin Secondary Email: %s' % customer_info[u'alternateEmail']
+  adm = buildGAPIObject(u'admin-settings')
+  _printAdminSetting(adm.maximumNumberOfUsers(), MAXIMUM_USERS_MAP)
+  _printAdminSetting(adm.currentNumberOfUsers(), CURRENT_USERS_MAP)
+  _printAdminSetting(adm.edition(), DOMAIN_EDITION_MAP)
+  _printAdminSetting(adm.customerPIN(), CUSTOMER_PIN_MAP)
+  _printAdminSetting(adm.ssoGeneral(), SINGLE_SIGN_ON_SETTINGS_MAP)
+  _printAdminSetting(adm.ssoSigningKey(), SINGLE_SIGN_ON_SIGNING_KEY_MAP)
 
 ADDRESS_FIELDS_ARGUMENT_MAP = {
   u'contact': u'contactName', u'contactname': u'contactName',
@@ -10550,6 +10603,9 @@ OAUTH2_SCOPES = [
   {u'name': u'Resource Calendar API',
    u'subscopes': [u'readonly'],
    u'scopes': u'https://www.googleapis.com/auth/admin.directory.resource.calendar'},
+  {u'name': u'Admin Settings API',
+   u'subscopes': [],
+   u'scopes': u'https://apps-apis.google.com/a/feeds/domain/'},
   {u'name': u'Group Settings API',
    u'subscopes': [],
    u'scopes': u'https://www.googleapis.com/auth/apps.groups.settings'},
@@ -10575,7 +10631,6 @@ OAUTH2_SCOPES = [
    u'subscopes': [],
    u'scopes': u'https://www.googleapis.com/auth/admin.directory.notifications'},
   {u'name': u'Site Verification API',
-   u'offByDefault': True,
    u'subscopes': [],
    u'scopes': u'https://www.googleapis.com/auth/siteverification'},
   {u'name': u'Gmail API - send report docs todrive notifications only',
@@ -10626,7 +10681,6 @@ OAUTH2_MENU += '''
      c)  Continue to authorization
 '''
 OAUTH2_CMDS = [u's', u'u', u'e', u'c']
-MAXIMUM_SCOPES = 29 # max of 30 - 1 for profile scope always included
 
 def doRequestOAuth(login_hint=None):
   def _checkMakeScopesList(scopes):
@@ -10641,8 +10695,6 @@ def doRequestOAuth(login_hint=None):
         scopes.append(u'%s.readonly' % OAUTH2_SCOPES[i][u'scopes'])
       elif selected_scopes[i] == u'A':
         scopes.append(u'%s.action' % OAUTH2_SCOPES[i][u'scopes'])
-    if len(scopes) > MAXIMUM_SCOPES:
-      return (False, u'ERROR: {0} scopes selected, maximum is {1}, please unselect some.\n'.format(len(scopes), MAXIMUM_SCOPES))
     if len(scopes) == 0:
       return (False, u'ERROR: No scopes selected, please select at least one.\n')
     scopes.insert(0, u'profile') # Email Display Scope, always included
