@@ -777,7 +777,7 @@ gam info user [<UserItem>] [noaliases] [nogroups] [nolicenses|nolicences] [nosch
 gam print users [todrive [<ToDriveAttributes>]] ([domain <DomainName>] [query <QueryUser>] [deleted_only|only_deleted])
 	[groups] [license|licenses|licence|licences] [emailpart|emailparts|username]
 	[orderby <UserOrderByFieldName> [ascending|descending]] [userview]
-	[basic|full|allfields | <UserFieldName>* | fields <UserFieldNameList>] [schemas|custom all|<SchemaNameList>]
+	[allfields|basic|full | ((<UserFieldName>* | fields <UserFieldNameList>) [schemas|custom all|<SchemaNameList>])]
 gam <UserTypeEntity> print
 
 Summary of printing:

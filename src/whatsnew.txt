@@ -1,3 +1,23 @@
+4.12.05
+
+Fixed gam print users to include primaryEmail field when custom argument is specified.
+
+gam print users [todrive] ([domain <DomainName>] [query <QueryUser>] [deleted_only|only_deleted])
+        [groups] [license|licenses|licence|licences] [emailpart|emailparts|username]
+        [orderby <UserOrderByFieldName> [ascending|descending]] [userview]
+        [allfields|basic|full | ((<UserFieldName>* | fields <UserFieldNameList>) [schemas|custom all|<SchemaNameList>])]
+
+There are basically three printing modes, choose one:
+Everything except custom fields (these two options are identical): allfields|basic
+Everything including all custom fields: full
+Selected fields: ((<UserFieldName>* | fields <UserFieldNameList>) [schemas|custom all|<SchemaNameList>])
+You can specify fields by entering the individual fields separately or by specifying a list of fields, the following items are equivalent:
+primaryemail id name 
+fields "primaryemail,id,name"
+When selecting fields, you can specify that you want all custom fields or selected custom fields.
+All custom fields: custom all
+Selected custom fields: custom <SchemaNameList>
+
 4.12.04
 
 When todrive tdparent id:<DriveFolderID>|<DriveFolderName> is specified, in addition to checking that the parent is an existing folder, the folder is verified as being writable.

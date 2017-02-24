@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.12.04'
+__version__ = u'4.12.05'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -9470,6 +9470,8 @@ def doPrintUsers():
       fieldsList = []
       i += 1
     elif myarg in [u'custom', u'schemas']:
+      if not fieldsList:
+        fieldsList = [u'primaryEmail',]
       fieldsList.append(u'customSchemas')
       if sys.argv[i+1].lower() == u'all':
         projection = u'full'
