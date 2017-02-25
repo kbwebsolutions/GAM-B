@@ -540,6 +540,11 @@ cache_dir
 	GAM cache directory.
 	Default: GamPath/gamcache
 	Environment variable: GAMCACHEDIR
+cache_discovery_only
+	Signal file: GamConfigDir/allcache.txt
+	If no_cache = True, no GAM API calls are cached.
+	If no_cache = False and cache_discovery_only = False, all GAM API calls are cached.
+	If no_cache = False and cache_discovery_only = True, only GAM discovery API calls are cached.
 charset
 	Character set of gam batch, gam csv files.
 	Default: utf-8 for Linux/Mac OSX, mbcs for Windows
@@ -599,7 +604,7 @@ no_verify_ssl
 	Signal file: GamConfigDir/noverifyssl.txt
 num_threads
 	Number of threads for gam batch
-	Default: 5
+	Default: 25
 	Environment variable: GAM_THREADS
 oauth2_txt
 	Path to oauth2.txt
@@ -609,6 +614,10 @@ oauth2service_json
 	Path to oauth2service.json
 	Default: GamConfigDir/oauth2service.json
 	Environment variable: OAUTHSERVICEFILE
+show_counts_min
+	Add (n/m) to end of messages if number of items to be processed exceeds this number
+	Default: 0
+	Environment variable: GAM_SHOW_COUNTS_MIN
 user_max_results
 	When retrieving lists of Users from API, how many should be retrieved in each chunk
 	Default: 500

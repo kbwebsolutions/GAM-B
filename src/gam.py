@@ -173,7 +173,7 @@ GM_Globals = {
   GM_MAP_ROLE_NAME_TO_ID: None,
   GM_MAP_USER_ID_TO_NAME: None,
   GM_CACHE_DIR: None,
-  GM_CACHE_DISCOVERY_ONLY: False,
+  GM_CACHE_DISCOVERY_ONLY: True,
   }
 #
 # Global variables defined by environment variables/signal files
@@ -224,6 +224,8 @@ GC_NUM_THREADS = u'num_threads'
 GC_OAUTH2_TXT = u'oauth2_txt'
 # Path to oauth2service.json
 GC_OAUTH2SERVICE_JSON = u'oauth2service_json'
+# Add (n/m) to end of messages if number of items to be processed exceeds this number
+GC_SHOW_COUNTS_MIN = u'show_counts_min'
 # When retrieving lists of Users from API, how many should be retrieved in each chunk
 GC_USER_MAX_RESULTS = u'user_max_results'
 
@@ -231,7 +233,7 @@ GC_Defaults = {
   GC_ACTIVITY_MAX_RESULTS: 100,
   GC_AUTO_BATCH_MIN: 0,
   GC_CACHE_DIR: u'',
-  GC_CACHE_DISCOVERY_ONLY: False,
+  GC_CACHE_DISCOVERY_ONLY: True,
   GC_CHARSET: DEFAULT_CHARSET,
   GC_CLIENT_SECRETS_JSON: FN_CLIENT_SECRETS_JSON,
   GC_CONFIG_DIR: u'',
@@ -250,6 +252,7 @@ GC_Defaults = {
   GC_NUM_THREADS: 25,
   GC_OAUTH2_TXT: FN_OAUTH2_TXT,
   GC_OAUTH2SERVICE_JSON: FN_OAUTH2SERVICE_JSON,
+  GC_SHOW_COUNTS_MIN: 0,
   GC_USER_MAX_RESULTS: 500,
   }
 
@@ -274,7 +277,7 @@ GC_VAR_INFO = {
   GC_ACTIVITY_MAX_RESULTS: {GC_VAR_TYPE: GC_TYPE_INTEGER, GC_VAR_ENVVAR: u'GAM_ACTIVITY_MAX_RESULTS', GC_VAR_LIMITS: (1, 500)},
   GC_AUTO_BATCH_MIN: {GC_VAR_TYPE: GC_TYPE_INTEGER, GC_VAR_ENVVAR: u'GAM_AUTOBATCH', GC_VAR_LIMITS: (None, None)},
   GC_CACHE_DIR: {GC_VAR_TYPE: GC_TYPE_DIRECTORY, GC_VAR_ENVVAR: u'GAMCACHEDIR'},
-  GC_CACHE_DISCOVERY_ONLY: {GC_VAR_TYPE: GC_TYPE_BOOLEAN, GC_VAR_SIGFILE: u'cachediscoveryonly.txt', GC_VAR_SFFT: (False, True)},
+  GC_CACHE_DISCOVERY_ONLY: {GC_VAR_TYPE: GC_TYPE_BOOLEAN, GC_VAR_SIGFILE: u'allcache.txt', GC_VAR_SFFT: (True, False)},
   GC_CHARSET: {GC_VAR_TYPE: GC_TYPE_STRING, GC_VAR_ENVVAR: u'GAM_CHARSET'},
   GC_CLIENT_SECRETS_JSON: {GC_VAR_TYPE: GC_TYPE_FILE, GC_VAR_ENVVAR: u'CLIENTSECRETS'},
   GC_CONFIG_DIR: {GC_VAR_TYPE: GC_TYPE_DIRECTORY, GC_VAR_ENVVAR: u'GAMUSERCONFIGDIR'},
@@ -293,6 +296,7 @@ GC_VAR_INFO = {
   GC_NUM_THREADS: {GC_VAR_TYPE: GC_TYPE_INTEGER, GC_VAR_ENVVAR: u'GAM_THREADS', GC_VAR_LIMITS: (1, None)},
   GC_OAUTH2_TXT: {GC_VAR_TYPE: GC_TYPE_FILE, GC_VAR_ENVVAR: u'OAUTHFILE'},
   GC_OAUTH2SERVICE_JSON: {GC_VAR_TYPE: GC_TYPE_FILE, GC_VAR_ENVVAR: u'OAUTHSERVICEFILE'},
+  GC_SHOW_COUNTS_MIN: {GC_VAR_TYPE: GC_TYPE_INTEGER, GC_VAR_ENVVAR: u'GAM_SHOW_COUNTS_MIN', GC_VAR_LIMITS: (0, None)},
   GC_USER_MAX_RESULTS: {GC_VAR_TYPE: GC_TYPE_INTEGER, GC_VAR_ENVVAR: u'GAM_USER_MAX_RESULTS', GC_VAR_LIMITS: (1, 500)},
   }
 
@@ -484,10 +488,10 @@ def noPythonSSLExit():
   systemErrorExit(8, MESSAGE_NO_PYTHON_SSL)
 
 def currentCount(i, count):
-  return u' ({0}/{1})'.format(i, count) if (count > 0) else u''
+  return u' ({0}/{1})'.format(i, count) if (count > GC_Values[GC_SHOW_COUNTS_MIN]) else u''
 
 def currentCountNL(i, count):
-  return u' ({0}/{1})\n'.format(i, count) if (count > 0) else u'\n'
+  return u' ({0}/{1})\n'.format(i, count) if (count > GC_Values[GC_SHOW_COUNTS_MIN]) else u'\n'
 
 def entityServiceNotApplicableWarning(entityType, entityName, i, count):
   sys.stderr.write(u'{0}: {1}, Service not applicable/Does not exist{2}'.format(entityType, entityName, currentCountNL(i, count)))
