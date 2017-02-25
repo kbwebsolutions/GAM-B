@@ -2,7 +2,7 @@
 
 Implement allcache.txt signal file so that caching can be more finely controlled.
 If nocache.txt is present, no GAM API calls are cached.
-If allcache.txt is present, all GAM API calls are cached.
+If allcache.txt is present and nocache.txt is not present, all GAM API calls are cached.
 If neither file is present, only GAM discovery API calls are cached.
 The last combination caches GAM discovery API calls that usually return the same value
 without consuming large amounts of disc space as when all GAM API calls are cached.
