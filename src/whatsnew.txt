@@ -1,3 +1,7 @@
+4.12.06
+
+Implement cachediscoveryonly.txt signal file so that when caching is on, only discovery calls are cached.
+
 4.12.05
 
 Fixed gam print users to include primaryEmail field when custom argument is specified.

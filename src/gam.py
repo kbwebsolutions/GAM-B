@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.12.05'
+__version__ = u'4.12.06'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -152,6 +152,10 @@ GM_MAP_ROLE_ID_TO_NAME = u'ri2n'
 GM_MAP_ROLE_NAME_TO_ID = u'rn2i'
 # Dictionary mapping User ID to Name
 GM_MAP_USER_ID_TO_NAME = u'ui2n'
+# GAM cache directory. If no_cache is True, this variable will be set to None
+GM_CACHE_DIR = u'gacd'
+# Reset GAM cache directory after discovery
+GM_CACHE_DISCOVERY_ONLY = u'gcdo'
 #
 GM_Globals = {
   GM_SYSEXITRC: 0,
@@ -168,6 +172,8 @@ GM_Globals = {
   GM_MAP_ROLE_ID_TO_NAME: None,
   GM_MAP_ROLE_NAME_TO_ID: None,
   GM_MAP_USER_ID_TO_NAME: None,
+  GM_CACHE_DIR: None,
+  GM_CACHE_DISCOVERY_ONLY: False,
   }
 #
 # Global variables defined by environment variables/signal files
@@ -179,6 +185,8 @@ GC_ACTIVITY_MAX_RESULTS = u'activity_max_results'
 GC_AUTO_BATCH_MIN = u'auto_batch_min'
 # GAM cache directory. If no_cache is specified, this variable will be set to None
 GC_CACHE_DIR = u'cache_dir'
+# GAM cache discovery only. If no_cache is False, only API discovery calls will be cached
+GC_CACHE_DISCOVERY_ONLY = u'cache_discovery_only'
 # Character set of batch, csv, data files
 GC_CHARSET = u'charset'
 # Path to client_secrets.json
@@ -223,6 +231,7 @@ GC_Defaults = {
   GC_ACTIVITY_MAX_RESULTS: 100,
   GC_AUTO_BATCH_MIN: 0,
   GC_CACHE_DIR: u'',
+  GC_CACHE_DISCOVERY_ONLY: False,
   GC_CHARSET: DEFAULT_CHARSET,
   GC_CLIENT_SECRETS_JSON: FN_CLIENT_SECRETS_JSON,
   GC_CONFIG_DIR: u'',
@@ -265,6 +274,7 @@ GC_VAR_INFO = {
   GC_ACTIVITY_MAX_RESULTS: {GC_VAR_TYPE: GC_TYPE_INTEGER, GC_VAR_ENVVAR: u'GAM_ACTIVITY_MAX_RESULTS', GC_VAR_LIMITS: (1, 500)},
   GC_AUTO_BATCH_MIN: {GC_VAR_TYPE: GC_TYPE_INTEGER, GC_VAR_ENVVAR: u'GAM_AUTOBATCH', GC_VAR_LIMITS: (None, None)},
   GC_CACHE_DIR: {GC_VAR_TYPE: GC_TYPE_DIRECTORY, GC_VAR_ENVVAR: u'GAMCACHEDIR'},
+  GC_CACHE_DISCOVERY_ONLY: {GC_VAR_TYPE: GC_TYPE_BOOLEAN, GC_VAR_SIGFILE: u'cachediscoveryonly.txt', GC_VAR_SFFT: (False, True)},
   GC_CHARSET: {GC_VAR_TYPE: GC_TYPE_STRING, GC_VAR_ENVVAR: u'GAM_CHARSET'},
   GC_CLIENT_SECRETS_JSON: {GC_VAR_TYPE: GC_TYPE_FILE, GC_VAR_ENVVAR: u'CLIENTSECRETS'},
   GC_CONFIG_DIR: {GC_VAR_TYPE: GC_TYPE_DIRECTORY, GC_VAR_ENVVAR: u'GAMUSERCONFIGDIR'},
@@ -845,7 +855,11 @@ def SetGlobalVariables():
     ea_config.read(GC_Values[GC_EXTRA_ARGS])
     GM_Globals[GM_EXTRA_ARGS_DICT].update(dict(ea_config.items(u'extra-args')))
   if GC_Values[GC_NO_CACHE]:
-    GC_Values[GC_CACHE_DIR] = None
+    GM_Globals[GM_CACHE_DIR] = None
+    GM_Globals[GM_CACHE_DISCOVERY_ONLY] = False
+  else:
+    GM_Globals[GM_CACHE_DIR] = GC_Values[GC_CACHE_DIR]
+    GM_Globals[GM_CACHE_DISCOVERY_ONLY] = GC_Values[GC_CACHE_DISCOVERY_ONLY]
 # If no config commands were executed or some were and there are more arguments on the command line, return True
   if (i == 1) or (i < len(sys.argv)):
     if i > 1:
@@ -1230,9 +1244,12 @@ def getClientAPIversionHttpService(api):
   credentials.user_agent = GAM_INFO
   api, version, api_version = getAPIVersion(api)
   http = credentials.authorize(httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL],
-                                             cache=GC_Values[GC_CACHE_DIR]))
+                                             cache=GM_Globals[GM_CACHE_DIR]))
   try:
-    return (credentials, googleapiclient.discovery.build(api, version, http=http, cache_discovery=False))
+    service = googleapiclient.discovery.build(api, version, http=http, cache_discovery=False)
+    if GM_Globals[GM_CACHE_DISCOVERY_ONLY]:
+      http.cache = None
+    return (credentials, service)
   except httplib2.ServerNotFoundError as e:
     systemErrorExit(4, e)
   except httplib2.CertificateValidationUnsupported:
@@ -1241,7 +1258,10 @@ def getClientAPIversionHttpService(api):
     pass
   disc_file, discovery = readDiscoveryFile(api_version)
   try:
-    return (credentials, googleapiclient.discovery.build_from_document(discovery, http=http))
+    service = googleapiclient.discovery.build_from_document(discovery, http=http)
+    if GM_Globals[GM_CACHE_DISCOVERY_ONLY]:
+      http.cache = None
+    return (credentials, service)
   except (ValueError, KeyError):
     invalidJSONExit(disc_file)
 
@@ -1301,16 +1321,22 @@ API_SCOPE_MAPPING = {
 def getSvcAcctAPIversionHttpService(api):
   api, version, api_version = getAPIVersion(api)
   http = httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL],
-                       cache=GC_Values[GC_CACHE_DIR])
+                       cache=GM_Globals[GM_CACHE_DIR])
   try:
-    return (api_version, http, googleapiclient.discovery.build(api, version, http=http, cache_discovery=False))
+    service = googleapiclient.discovery.build(api, version, http=http, cache_discovery=False)
+    if GM_Globals[GM_CACHE_DISCOVERY_ONLY]:
+      http.cache = None
+    return (api_version, http, service)
   except httplib2.ServerNotFoundError as e:
     systemErrorExit(4, e)
   except googleapiclient.errors.UnknownApiNameOrVersion:
     pass
   disc_file, discovery = readDiscoveryFile(api_version)
   try:
-    return (api_version, http, googleapiclient.discovery.build_from_document(discovery, http=http))
+    service = googleapiclient.discovery.build_from_document(discovery, http=http)
+    if GM_Globals[GM_CACHE_DISCOVERY_ONLY]:
+      http.cache = None
+    return (api_version, http, service)
   except (ValueError, KeyError):
     invalidJSONExit(disc_file)
 
@@ -7416,7 +7442,7 @@ def getCRMService(login_hint):
     noPythonSSLExit()
   credentials.user_agent = GAM_INFO
   http = credentials.authorize(httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL],
-                                             cache=GC_Values[GC_CACHE_DIR]))
+                                             cache=None))
   return (googleapiclient.discovery.build(u'cloudresourcemanager', u'v1', http=http, cache_discovery=False), http)
 
 def doDelProjects(login_hint=None):
