@@ -8238,7 +8238,7 @@ def doWhatIs():
 def getCustomerSubscription(res):
   customerId = sys.argv[3]
   skuId = sys.argv[4]
-  results = callGAPIpages(res.subscriptions(), u'list',
+  results = callGAPIpages(res.subscriptions(), u'list', u'subscriptions',
                           customerId=customerId, fields=u'nextPageToken,subscriptions(skuId,subscriptionId)')
   for subscription in results:
     if skuId == subscription[u'skuId']:
