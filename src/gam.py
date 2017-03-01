@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.12.06'
+__version__ = u'4.13.00'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -162,7 +162,7 @@ GM_Globals = {
   GM_GAM_PATH: os.path.dirname(os.path.realpath(__file__)) if not getattr(sys, u'frozen', False) else os.path.dirname(sys.executable),
   GM_WINDOWS: os.name == u'nt',
   GM_SYS_ENCODING: DEFAULT_CHARSET,
-  GM_EXTRA_ARGS_DICT:  {u'prettyPrint': False},
+  GM_EXTRA_ARGS_DICT:  {},
   GM_CURRENT_API_USER: None,
   GM_CURRENT_API_SCOPES: [],
   GM_OAUTH2SERVICE_JSON_DATA: None,
@@ -183,7 +183,7 @@ GC_ACTIVITY_MAX_RESULTS = u'activity_max_results'
 # Automatically generate gam batch command if number of users specified in gam users xxx command exceeds this number
 # Default: 0, don't automatically generate gam batch commands
 GC_AUTO_BATCH_MIN = u'auto_batch_min'
-# GAM cache directory. If no_cache is specified, this variable will be set to None
+# GAM cache directory
 GC_CACHE_DIR = u'cache_dir'
 # GAM cache discovery only. If no_cache is False, only API discovery calls will be cached
 GC_CACHE_DISCOVERY_ONLY = u'cache_discovery_only'
@@ -780,7 +780,7 @@ def SetGlobalVariables():
       cfgValue = GC_Defaults[itemName]
       if GC_VAR_INFO[itemName][GC_VAR_TYPE] == GC_TYPE_FILE:
         expdValue = _getCfgFile(itemName, GC_Defaults)
-        if cfgValue != expdValue:
+        if cfgValue and cfgValue != expdValue:
           cfgValue = u'{0} ; {1}'.format(cfgValue, expdValue)
       elif GC_VAR_INFO[itemName][GC_VAR_TYPE] == GC_TYPE_DIRECTORY:
         expdValue = _getCfgDirectory(itemName)
@@ -850,7 +850,7 @@ def SetGlobalVariables():
 # Globals derived from config file values
   GM_Globals[GM_OAUTH2SERVICE_JSON_DATA] = None
   GM_Globals[GM_OAUTH2SERVICE_ACCOUNT_CLIENT_ID] = None
-  GM_Globals[GM_EXTRA_ARGS_DICT] = {u'prettyPrint': GC_Values[GC_DEBUG_LEVEL] > 0}
+  GM_Globals[GM_EXTRA_ARGS_DICT] = {}
   httplib2.debuglevel = GC_Values[GC_DEBUG_LEVEL]
   if os.path.isfile(GC_Values[GC_EXTRA_ARGS]):
     import ConfigParser
@@ -1938,6 +1938,16 @@ def doGetDomainAliasInfo():
   print_json(None, result)
 
 ADDRESS_FIELDS_PRINT_ORDER = [u'contactName', u'organizationName', u'addressLine1', u'addressLine2', u'addressLine3', u'locality', u'region', u'postalCode', u'countryCode']
+
+def _showCustomerAddressPhoneNumber(customerInfo):
+  if u'postalAddress' in customerInfo:
+    print u'Address:'
+    for field in ADDRESS_FIELDS_PRINT_ORDER:
+      if field in customerInfo[u'postalAddress']:
+        print u' %s: %s' % (field, customerInfo[u'postalAddress'][field])
+  if u'phoneNumber' in customerInfo:
+    print u'Phone: %s' % customerInfo[u'phoneNumber']
+
 MAXIMUM_USERS_MAP = [u'maximumNumberOfUsers', u'Maximum Users']
 CURRENT_USERS_MAP = [u'currentNumberOfUsers', u'Current Users']
 DOMAIN_EDITION_MAP = [u'edition', u'Domain Edition']
@@ -1973,22 +1983,16 @@ def doGetCustomerInfo():
       pass
 
   cd = buildGAPIObject(u'directory')
-  customer_info = callGAPI(cd.customers(), u'get', customerKey=GC_Values[GC_CUSTOMER_ID])
-  print u'Customer ID: %s' % customer_info[u'id']
-  print u'Primary Domain: %s' % customer_info[u'customerDomain']
+  customerInfo = callGAPI(cd.customers(), u'get', customerKey=GC_Values[GC_CUSTOMER_ID])
+  print u'Customer ID: {0}'.format(customerInfo[u'id'])
+  print u'Primary Domain: {0}'.format(customerInfo[u'customerDomain'])
   result = callGAPI(cd.domains(), u'get',
-                    customer=customer_info[u'id'], domainName=customer_info[u'customerDomain'], fields=u'verified')
-  print u'Primary Domain Verified: %s' % result[u'verified']
-  print u'Customer Creation Time: %s' % customer_info[u'customerCreationTime']
-  print u'Default Language: %s' % customer_info[u'language']
-  if u'postalAddress' in customer_info:
-    print u'Address:'
-    for field in ADDRESS_FIELDS_PRINT_ORDER:
-      if field in customer_info[u'postalAddress']:
-        print u' %s: %s' % (field, customer_info[u'postalAddress'][field])
-  if u'phoneNumber' in customer_info:
-    print u'Phone: %s' % customer_info[u'phoneNumber']
-  print u'Admin Secondary Email: %s' % customer_info[u'alternateEmail']
+                    customer=customerInfo[u'id'], domainName=customerInfo[u'customerDomain'], fields=u'verified')
+  print u'Primary Domain Verified: {0}'.format(result[u'verified'])
+  print u'Customer Creation Time: {0}'.format(customerInfo[u'customerCreationTime'])
+  print u'Default Language: {0}'.format(customerInfo[u'language'])
+  _showCustomerAddressPhoneNumber(customerInfo)
+  print u'Admin Secondary Email: {0}'.format(customerInfo[u'alternateEmail'])
   adm = buildGAPIObject(u'admin-settings')
   _printAdminSetting(adm.maximumNumberOfUsers(), MAXIMUM_USERS_MAP)
   _printAdminSetting(adm.currentNumberOfUsers(), CURRENT_USERS_MAP)
@@ -2000,12 +2004,12 @@ def doGetCustomerInfo():
 ADDRESS_FIELDS_ARGUMENT_MAP = {
   u'contact': u'contactName', u'contactname': u'contactName',
   u'name': u'organizationName', u'organizationname': u'organizationName',
-  u'address1': u'addressLine1', u'addressline1': u'addressLine1',
+  u'address': u'addressLine1', u'address1': u'addressLine1', u'addressline1': u'addressLine1',
   u'address2': u'addressLine2', u'addressline2': u'addressLine2',
   u'address3': u'addressLine3', u'addressline3': u'addressLine3',
-  u'locality': u'locality',
-  u'region': u'region',
-  u'postalcode': u'postalCode',
+  u'city': u'locality', u'locality': u'locality',
+  u'state': u'region', u'region': u'region',
+  u'zipcode': u'postalCode', u'postal': u'postalCode', u'postalcode': u'postalCode',
   u'country': u'countryCode', u'countrycode': u'countryCode',
   }
 
@@ -8231,6 +8235,206 @@ def doWhatIs():
     sys.stderr.write(u'%s is a group alias\n\n' % email)
     doGetAliasInfo(alias_email=email)
 
+def getCustomerSubscription(res):
+  customerId = sys.argv[3]
+  skuId = sys.argv[4]
+  results = callGAPIpages(res.subscriptions(), u'list',
+                          customerId=customerId, fields=u'nextPageToken,subscriptions(skuId,subscriptionId)')
+  for subscription in results:
+    if skuId == subscription[u'skuId']:
+      return (customerId, skuId, subscription[u'subscriptionId'])
+  print u'ERROR: could not find subscription for customer %s and SKU %s' % (customerId, skuId)
+  sys.exit(3)
+
+def doDeleteResoldSubscription():
+  res = buildGAPIObject(u'reseller')
+  customerId, skuId, subscriptionId = getCustomerSubscription(res)
+  deletionType = sys.argv[5]
+  callGAPI(res.subscriptions(), u'delete', customerId=customerId, subscriptionId=subscriptionId, deletionType=deletionType, fields=u'')
+  print u'Cancelled %s SKU %s subscription' % (customerId, skuId)
+
+def doCreateResoldSubscription():
+  res = buildGAPIObject(u'reseller')
+  customerId = sys.argv[3]
+  customerAuthToken, body = _getResoldSubscriptionAttr(sys.argv[4:], customerId)
+  result = callGAPI(res.subscriptions(), u'insert', customerId=customerId, customerAuthToken=customerAuthToken, body=body, fields=u'customerId')
+  print u'Created subscription:'
+  print_json(None, result)
+
+def doUpdateResoldSubscription():
+  res = buildGAPIObject(u'reseller')
+  function = None
+  customerId, skuId, subscriptionId = getCustomerSubscription(res)
+  kwargs = {}
+  i = 5
+  while i < len(sys.argv):
+    myarg = sys.argv[i].lower()
+    if myarg == u'activate':
+      function = u'activate'
+      i += 1
+    elif myarg == u'suspend':
+      function = u'suspend'
+      i += 1
+    elif myarg == u'startpaidservice':
+      function = u'startPaidService'
+      i += 1
+    elif myarg in [u'renewal', u'renewaltype']:
+      function = u'changeRenewalSettings'
+      kwargs[u'body'] = {u'renewalType': sys.argv[i+1].upper()}
+      i += 2
+    elif myarg in [u'seats']:
+      function = u'changeSeats'
+      kwargs[u'body'] = {u'numberOfSeats': sys.argv[i+1]}
+      if len(sys.argv) > i + 2 and sys.argv[i+2].isdigit():
+        kwargs[u'body'][u'maximumNumberOfSeats'] = sys.argv[i+2]
+        i += 3
+      else:
+        i += 2
+    elif myarg in [u'plan']:
+      function = u'changePlan'
+      kwargs[u'body'] = {u'planName': sys.argv[i+1].upper()}
+      i += 2
+      while i < len(sys.argv):
+        planarg = sys.argv[i].lower()
+        if planarg == u'seats':
+          kwargs[u'body'][u'seats'] = {u'numberOfSeats': sys.argv[i+1]}
+          if len(sys.argv) > i + 2 and sys.argv[i+2].isdigit():
+            kwargs[u'body'][u'seats'][u'maximumNumberOfSeats'] = sys.argv[i+2]
+            i += 3
+          else:
+            i += 2
+        elif planarg in [u'purchaseorderid', u'po']:
+          kwargs[u'body'][u'purchaseOrderId'] = sys.argv[i+1]
+          i += 2
+        elif planarg in [u'dealcode', u'deal']:
+          kwargs[u'body'][u'dealCode'] = sys.argv[i+1]
+          i += 2
+        else:
+          print u'ERROR: %s is not a valid argument to "gam update resoldsubscription plan"' % planarg
+          sys.exit(3)
+    else:
+      print u'ERROR: %s is not a valid argument to "gam update resoldsubscription"' % myarg
+      sys.exit(3)
+  result = callGAPI(res.subscriptions(), function, customerId=customerId, subscriptionId=subscriptionId, **kwargs)
+  print u'Updated %s SKU %s subscription:' % (customerId, skuId)
+  if result:
+    print_json(None, result)
+
+def doGetResoldSubscriptionInfo():
+  res = buildGAPIObject(u'reseller')
+  customerId, skuId, subscriptionId = getCustomerSubscription(res)
+  result = callGAPI(res.subscriptions(), u'get', customerId=customerId, subscriptionId=subscriptionId)
+  print_json(None, result)
+
+def doPrintShowResoldSubscriptions(csvFormat):
+  res = buildGAPIObject(u'reseller')
+  if csvFormat:
+    todrive = {}
+    csvRows = []
+    titles = [u'customerId', u'skuId', u'subscriptionId']
+  kwargs = {}
+  i = 3
+  while i < len(sys.argv):
+    myarg = sys.argv[i].lower().replace(u'_', u'')
+    if csvFormat and myarg == u'todrive':
+      i, todrive = getTodriveParameters(i)
+    elif myarg == u'customerid':
+      kwargs[u'customerId'] = sys.argv[i+1]
+      i += 2
+    elif myarg in [u'customerauthtoken', u'transfertoken']:
+      kwargs[u'customerAuthToken'] = sys.argv[i+1]
+      i += 2
+    elif myarg == u'customerprefix':
+      kwargs[u'customerNamePrefix'] = sys.argv[i+1]
+      i += 2
+    else:
+      print u'ERROR: %s is not a valid argument for "gam %s resoldsubscriptions"' % (myarg, [u'show', u'print'][csvFormat])
+      sys.exit(3)
+  result = callGAPIpages(res.subscriptions(), u'list', u'subscriptions',
+                         fields=u'nextPageToken,subscriptions', **kwargs)
+  if not csvFormat:
+    print_json(None, result)
+  else:
+    for subscription in result:
+      addRowTitlesToCSVfile(flatten_json(subscription), csvRows, titles)
+    sortCSVTitles([u'customerId', u'skuId', u'subscriptionId'], titles)
+    writeCSVfile(csvRows, titles, u'Resold Subscriptions', todrive)
+
+def _getResoldSubscriptionAttr(arg, customerId):
+  body = {u'plan': {},
+          u'seats': {},
+          u'customerId': customerId}
+  customerAuthToken = None
+  i = 0
+  while i < len(arg):
+    myarg = arg[i].lower().replace(u'_', u'')
+    if myarg in [u'deal', u'dealcode']:
+      body[u'dealCode'] = arg[i+1]
+    elif myarg in [u'plan', u'planname']:
+      body[u'plan'][u'planName'] = arg[i+1].upper()
+    elif myarg in [u'purchaseorderid', u'po']:
+      body[u'purchaseOrderId'] = arg[i+1]
+    elif myarg in [u'seats']:
+      body[u'seats'][u'numberOfSeats'] = arg[i+1]
+      if len(arg) > i + 2 and arg[i+2].isdigit():
+        body[u'seats'][u'maximumNumberOfSeats'] = arg[i+2]
+        i += 1
+    elif myarg in [u'sku', u'skuid']:
+      _, body[u'skuId'] = getProductAndSKU(arg[i+1])
+    elif myarg in [u'customerauthtoken', u'transfertoken']:
+      customerAuthToken = arg[i+1]
+    else:
+      print u'ERROR: %s is not a valid argument for "gam create resoldsubscription"' % myarg
+      sys.exit(3)
+    i += 2
+  return customerAuthToken, body
+
+def doGetResoldCustomerInfo():
+  res = buildGAPIObject(u'reseller')
+  customerId = sys.argv[3]
+  customerInfo = callGAPI(res.customers(), u'get', customerId=customerId)
+  print u'Customer ID: {0}'.format(customerInfo[u'customerId'])
+  print u'Customer Domain: {0}'.format(customerInfo[u'customerDomain'])
+  print u'Customer Domain Verified: {0}'.format(customerInfo[u'customerDomainVerified'])
+  _showCustomerAddressPhoneNumber(customerInfo)
+  print u'Customer Alternate Email: {0}'.format(customerInfo[u'alternateEmail'])
+  print u'Customer Admin Console URL: {0}'.format(customerInfo[u'resourceUiUrl'])
+
+def _getResoldCustomerAttr(arg):
+  body = {}
+  customerAuthToken = None
+  i = 0
+  while i < len(arg):
+    myarg = arg[i].lower().replace(u'_', u'')
+    if myarg in ADDRESS_FIELDS_ARGUMENT_MAP:
+      body.setdefault(u'postalAddress', {})
+      body[u'postalAddress'][ADDRESS_FIELDS_ARGUMENT_MAP[myarg]] = arg[i+1]
+    elif myarg in [u'email', u'alternateemail']:
+      body[u'alternateEmail'] = arg[i+1]
+    elif myarg in [u'phone', u'phonenumber']:
+      body[u'phoneNumber'] = arg[i+1]
+    elif myarg in [u'customerauthtoken', u'transfertoken']:
+      customerAuthToken = arg[i+1]
+    else:
+      print u'ERROR: %s is not a valid argument for "gam %s resoldcustomer"' % (myarg, sys.argv[1])
+      sys.exit(3)
+    i += 2
+  return customerAuthToken, body
+
+def doUpdateResoldCustomer():
+  res = buildGAPIObject(u'reseller')
+  customerId = sys.argv[3]
+  customerAuthToken, body = _getResoldCustomerAttr(sys.argv[4:])
+  callGAPI(res.customers(), u'patch', customerId=customerId, body=body, customerAuthToken=customerAuthToken, fields=u'customerId')
+  print u'updated customer %s' % customerId
+
+def doCreateResoldCustomer():
+  res = buildGAPIObject(u'reseller')
+  customerAuthToken, body = _getResoldCustomerAttr(sys.argv[4:])
+  body[u'customerDomain'] = sys.argv[3]
+  result = callGAPI(res.customers(), u'insert', body=body, customerAuthToken=customerAuthToken, fields=u'customerId,customerDomain')
+  print u'Created customer %s with id %s' % (result[u'customerDomain'], result[u'customerId'])
+
 def doGetUserInfo(user_email=None):
 
   def user_lic_result(request_id, response, exception):
@@ -10693,6 +10897,10 @@ OAUTH2_SCOPES = [
   {u'name': u'Roles Directory API',
    u'subscopes': [u'readonly'],
    u'scopes': u'https://www.googleapis.com/auth/admin.directory.rolemanagement'},
+  {u'name': u'Reseller API',
+   u'subscopes': [],
+   u'offByDefault': True,
+   u'scopes': u'https://www.googleapis.com/auth/apps.order'}
   ]
 
 OAUTH2_MENU = u'''
@@ -10756,10 +10964,7 @@ gam create project
   menu = OAUTH2_MENU % tuple(range(num_scopes))
   selected_scopes = []
   for scope in OAUTH2_SCOPES:
-    if scope.get(u'offByDefault', False):
-      selected_scopes.append(u' ')
-    else:
-      selected_scopes.append(u'*')
+    selected_scopes.append([u'*', u' '][scope.get(u'offByDefault', False)])
   scopes = []
   prompt = u'Please enter 0-{0}[a|r] or {1}: '.format(num_scopes-1, u'|'.join(OAUTH2_CMDS))
   message = u''
@@ -11039,6 +11244,10 @@ def ProcessGAMCommand(args):
         doInviteGuardian()
       elif argument in [u'project', u'apiproject']:
         doCreateProject(sys.argv[3] if len(sys.argv) > 3 else None)
+      elif argument in [u'resoldcustomer', u'resellercustomer']:
+        doCreateResoldCustomer()
+      elif argument in [u'resoldsubscription', u'resellersubscription']:
+        doCreateResoldSubscription()
       else:
         print u'ERROR: %s is not a valid argument for "gam create"' % argument
         sys.exit(2)
@@ -11073,6 +11282,10 @@ def ProcessGAMCommand(args):
         doUpdateDomain()
       elif argument == u'customer':
         doUpdateCustomer()
+      elif argument in [u'resoldcustomer', u'resellercustomer']:
+        doUpdateResoldCustomer()
+      elif argument in [u'resoldsubscription', u'resellersubscription']:
+        doUpdateResoldSubscription()
       else:
         print u'ERROR: %s is not a valid argument for "gam update"' % argument
         sys.exit(2)
@@ -11113,6 +11326,10 @@ def ProcessGAMCommand(args):
         doGetDomainInfo()
       elif argument in [u'domainalias', u'aliasdomain']:
         doGetDomainAliasInfo()
+      elif argument in [u'resoldcustomer', u'resellercustomer']:
+        doGetResoldCustomerInfo()
+      elif argument in [u'resoldsubscription', u'resellersubscription']:
+        doGetResoldSubscriptionInfo()
       else:
         print u'ERROR: %s is not a valid argument for "gam info"' % argument
         sys.exit(2)
@@ -11157,6 +11374,8 @@ def ProcessGAMCommand(args):
         doDeleteGuardian()
       elif argument in [u'project', u'projects']:
         doDelProjects(sys.argv[3] if len(sys.argv) > 3 else None)
+      elif argument in [u'resoldsubscription', u'resellersubscription']:
+        doDeleteResoldSubscription()
       else:
         print u'ERROR: %s is not a valid argument for "gam delete"' % argument
         sys.exit(2)
@@ -11215,6 +11434,8 @@ def ProcessGAMCommand(args):
         doPrintAdminRoles()
       elif argument in [u'guardian', u'guardians']:
         doPrintShowGuardians(True)
+      elif argument in [u'resoldsubscriptions', u'resellersubscriptions']:
+        doPrintShowResoldSubscriptions(True)
       else:
         print u'ERROR: %s is not a valid argument for "gam print"' % argument
         sys.exit(2)
@@ -11225,6 +11446,8 @@ def ProcessGAMCommand(args):
         doPrintShowUserSchemas(False)
       elif argument in [u'guardian', u'guardians']:
         doPrintShowGuardians(False)
+      elif argument in [u'resoldsubscriptions', u'resellersubscriptions']:
+        doPrintShowResoldSubscriptions(False)
       else:
         print u'ERROR: %s is not a valid argument for "gam show"' % argument
         sys.exit(2)
