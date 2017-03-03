@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.13.00'
+__version__ = u'4.13.01'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -4872,6 +4872,7 @@ def downloadDriveFile(users):
   exportFormatName = u'openoffice'
   exportFormats = DOCUMENT_FORMATS_MAP[exportFormatName]
   targetFolder = GC_Values[GC_DRIVE_DIR]
+  nocache = False
   while i < len(sys.argv):
     myarg = sys.argv[i].lower().replace(u'_', u'')
     if myarg == u'id':
@@ -4901,6 +4902,9 @@ def downloadDriveFile(users):
       if not os.path.isdir(targetFolder):
         os.makedirs(targetFolder)
       i += 2
+    elif myarg == u'nocache':
+      nocache = True
+      i += 1
     else:
       print u'ERROR: %s is not a valid argument for "gam <users> get drivefile"' % sys.argv[i]
       sys.exit(2)
@@ -4969,6 +4973,8 @@ def downloadDriveFile(users):
       print convertUTF8(my_line % filename)
       if revisionId:
         download_url = u'{0}&revision={1}'.format(download_url, revisionId)
+      if nocache:
+        drive._http.cache = None
       _, content = drive._http.request(download_url)
       writeFile(filename, content, continueOnError=True)
 

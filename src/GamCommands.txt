@@ -82,6 +82,7 @@ Named items
 <CourseParticipantType> ::= teacher|teachers|student|students
 <CrOSID> ::= <String>
 <CrOSItem> ::= <CrOSID>|(query:<QueryCrOS>)
+<CustomerID> ::= <String>
 <DestEmailAddress> ::= <EmailAddress>
 <DomainAlias> ::= <String>
 <DriveFileACLRole> :: =commenter|editor|owner|reader|writer
@@ -108,10 +109,12 @@ Named items
 <LabelName> ::= <String>
 <LabelReplacement> ::= <String>
 <Marker> ::= <String>
+<MaximumNumberOfSeats> ::= <Number>
 <MobileID> ::= <String>
 <MobileItem> ::= <MobileID>|(query:<QueryMobile>)|(query <QueryMobile>)
 <Name> ::= <String>
 <NotificationID> ::= <String>
+<NumberOfSeats> ::= <Number>
 <OrgUnitID> ::= <String>
 <OrgUnitPath> ::= /|(/<String)+
 <ParameterKey> ::= <String>
@@ -680,7 +683,7 @@ gam update resoldsubscription <CustomerID> <SKUID>
 	(seats <NumberOfSeats> [<MaximumNumberOfSeats>])|
 	(plan annual_monthly_pay|annual_yearly_pay|flexible|trial [deal <String>] [purchaseorderid <String>] [seats <NumberOfSeats> [<MaximumNumberOfSeats>]])
 gam delete resoldsubscription <CustomerID> <SKUID> cancel|downgrade|transfer_to_direct
-gam info resoldsubscription <CustomerID>  <SKUID>
+gam info resoldsubscription <CustomerID> <SKUID>
 gam show resoldsubscriptions [customerid <CustomerID>] [customer_auth_token <String>] [customer_prefix <String>]
 gam print resoldsubscriptions [todrive [<ToDriveAttributes>]] [customerid <CustomerID>] [customer_auth_token <String>] [customer_prefix <String>]
 
@@ -918,7 +921,7 @@ gam <UserTypeEntity> show filetree [anyowner] (orderby <DriveOrderByFieldName> [
 
 gam <UserTypeEntity> add drivefile [drivefilename <DriveFileName>] <DriveFileAddAttributes>*
 gam <UserTypeEntity> update drivefile (id <DriveFileID)|(drivefilename <DriveFileName>)|(query <QueryDriveFile) [copy] [newfilename <DriveFileName>] <DriveFileUpdateAttributes>*
-gam <UserTypeEntity> get drivefile (id <DriveFileID>)|(drivefilename <DriveFileName>)|(query <QueryDriveFile>) [format <FileFormatList>] [targetfolder <FilePath>] [revision <Number>]
+gam <UserTypeEntity> get drivefile (id <DriveFileID>)|(drivefilename <DriveFileName>)|(query <QueryDriveFile>) [format <FileFormatList>] [targetfolder <FilePath>] [revision <Number>] [nocache]
 gam <UserTypeEntity> delete|del drivefile <DriveFileID>|<DriveFileURL>|(query:<QueryDriveFile>) [purge|untrash]
 gam <UserTypeEntity> transfer drive <UserItem> [keepuser]
 gam <UserTypeEntity> delete|del emptydrivefolders
@@ -1006,7 +1009,7 @@ gam <UserTypeEntity> show sendas [format]
 gam <UserTypeEntity> info sendas <EmailAddress> [format]
 gam <UserTypeEntity> print sendas [todrive [<ToDriveAttributes>]]
 
-gam <UserTypeEntity> add smime file <FileName> [password <Password>] [sendas|sendasemail <EmailAddress>] [default]
+gam <UserTypeEntity> add smime (file <FileName> [charset <CharSet>]) [password <Password>] [sendas|sendasemail <EmailAddress>] [default]
 gam <UserTypeEntity> update smime [id <S/MIMEID>] [sendas|sendasemail <EmailAddress>] [default]
 gam <UserTypeEntity> delete smime [id <S/MIMEID>] [sendas|sendasemail <EmailAddress>]
 gam <UserTypeEntity> show smime [primaryonly]
