@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.13.01'
+__version__ = u'4.13.02'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -37,6 +37,7 @@ import csv
 import datetime
 from htmlentitydefs import name2codepoint
 from HTMLParser import HTMLParser, HTMLParseError
+import httplib
 import json
 import mimetypes
 import platform
@@ -952,7 +953,7 @@ def doGAMVersion(checkForArgs=True):
     doGAMCheckForUpdates(forceCheck=True)
 
 def handleOAuthTokenError(e, soft_errors):
-  if e.message in OAUTH2_TOKEN_ERRORS:
+  if e in OAUTH2_TOKEN_ERRORS or e.startswith(u'Invalid response'):
     if soft_errors:
       return None
     if not GM_Globals[GM_CURRENT_API_USER]:
@@ -984,10 +985,9 @@ def getSvcAcctCredentials(scopes, act_as):
 def waitOnFailure(n, retries, errMsg):
   wait_on_fail = min(2 ** n, 60) + float(random.randint(1, 1000)) / 1000
   if n > 3:
-    sys.stderr.write(u'Temp error {0}. Backing off {1} seconds...'.format(errMsg, int(wait_on_fail)))
+    sys.stderr.write(u'Temporary error: {0}, Backing off: {1} seconds, Retry: {2}/{3}\n'.format(errMsg, int(wait_on_fail), n, retries))
+    sys.stderr.flush()
   time.sleep(wait_on_fail)
-  if n > 3:
-    sys.stderr.write(u'attempt {0}/{1}\n'.format(n+1, retries))
 
 def checkGAPIError(e, soft_errors=False, silent_errors=False, retryOnHttpError=False, service=None):
   try:
@@ -1117,19 +1117,24 @@ def callGAPI(service, function,
         waitOnFailure(n, retries, reason)
         continue
       if soft_errors:
-        stderrErrorMsg(u'{0}: {1} - {2}{3}'.format(http_status, message, reason, u': Giving up.\n' if n > 1 else u''))
+        stderrErrorMsg(u'{0}: {1} - {2}{3}'.format(http_status, message, reason, [u'', u': Giving up.'][n > 1]))
         return None
       systemErrorExit(int(http_status), u'{0}: {1} - {2}'.format(http_status, message, reason))
     except oauth2client.client.AccessTokenRefreshError as e:
-      handleOAuthTokenError(e, soft_errors or GAPI_SERVICE_NOT_AVAILABLE in throw_reasons)
+      handleOAuthTokenError(str(e), soft_errors or GAPI_SERVICE_NOT_AVAILABLE in throw_reasons)
       if GAPI_SERVICE_NOT_AVAILABLE in throw_reasons:
-        raise GAPI_serviceNotAvailable(e.message)
+        raise GAPI_serviceNotAvailable(str(e))
       entityUnknownWarning(u'User', GM_Globals[GM_CURRENT_API_USER], 0, 0)
       return None
     except httplib2.CertificateValidationUnsupported:
       noPythonSSLExit()
+    except ValueError as e:
+      if service._http.cache is not None:
+        service._http.cache = None
+        continue
+      systemErrorExit(4, str(e))
     except TypeError as e:
-      systemErrorExit(4, e)
+      systemErrorExit(4, str(e))
 
 def callGAPIpages(service, function, items,
                   page_message=None, message_attribute=None,
@@ -1249,17 +1254,30 @@ def getClientAPIversionHttpService(api):
   api, version, api_version = getAPIVersion(api)
   http = credentials.authorize(httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL],
                                              cache=GM_Globals[GM_CACHE_DIR]))
-  try:
-    service = googleapiclient.discovery.build(api, version, http=http, cache_discovery=False)
-    if GM_Globals[GM_CACHE_DISCOVERY_ONLY]:
+  retries = 5
+  for n in range(1, retries+1):
+    try:
+      service = googleapiclient.discovery.build(api, version, http=http, cache_discovery=False)
+      if GM_Globals[GM_CACHE_DISCOVERY_ONLY]:
+        http.cache = None
+      return (credentials, service)
+    except httplib2.ServerNotFoundError as e:
+      systemErrorExit(4, str(e))
+    except httplib2.CertificateValidationUnsupported:
+      noPythonSSLExit()
+    except (googleapiclient.errors.InvalidJsonError, KeyError, ValueError) as e:
       http.cache = None
-    return (credentials, service)
-  except httplib2.ServerNotFoundError as e:
-    systemErrorExit(4, e)
-  except httplib2.CertificateValidationUnsupported:
-    noPythonSSLExit()
-  except googleapiclient.errors.UnknownApiNameOrVersion:
-    pass
+      if n != retries:
+        waitOnFailure(n, retries, str(e))
+        continue
+      systemErrorExit(17, str(e))
+    except (httplib.ResponseNotReady, httplib2.SSLHandshakeError, socket.error) as e:
+      if n != retries:
+        waitOnFailure(n, retries, str(e))
+        continue
+      systemErrorExit(3, str(e))
+    except googleapiclient.errors.UnknownApiNameOrVersion:
+      break
   disc_file, discovery = readDiscoveryFile(api_version)
   try:
     service = googleapiclient.discovery.build_from_document(discovery, http=http)
@@ -1355,7 +1373,7 @@ def buildGAPIServiceObject(api, act_as, use_scopes=None):
     systemErrorExit(4, e)
   except oauth2client.client.AccessTokenRefreshError as e:
     entityServiceNotApplicableWarning([u'Calendar', u'User'][api != u'calendar'], act_as, 0, 0)
-    return handleOAuthTokenError(e, True)
+    return handleOAuthTokenError(str(e), True)
   return service
 
 def buildActivityGAPIObject(user):
@@ -1561,7 +1579,7 @@ def showReport():
                               date=try_date, userKey=userKey, customerId=customerId, filters=filters, parameters=parameters)
         break
       except GAPI_invalid as e:
-        try_date = _adjustDate(e.message)
+        try_date = _adjustDate(str(e))
         if not try_date:
           return
     titles = [u'email', u'date']
@@ -1590,7 +1608,7 @@ def showReport():
                               customerId=customerId, date=try_date, parameters=parameters)
         break
       except GAPI_invalid as e:
-        try_date = _adjustDate(e.message)
+        try_date = _adjustDate(str(e))
         if not try_date:
           return
     titles = [u'name', u'value', u'client_id']
@@ -4870,6 +4888,7 @@ def downloadDriveFile(users):
   fileIdSelection = initDriveFileEntity()
   revisionId = None
   exportFormatName = u'openoffice'
+  exportFormatChoices = [exportFormatName]
   exportFormats = DOCUMENT_FORMATS_MAP[exportFormatName]
   targetFolder = GC_Values[GC_DRIVE_DIR]
   nocache = False
@@ -7529,11 +7548,11 @@ and accept the Terms of Service (ToS). As soon as you've accepted the ToS popup,
         break
       except GAPI_failedPrecondition as e:
         print u'\nThere was an error enabling %s. Please resolve error as described below:' % api
-        print u'%s\n' % e.message
+        print u'%s\n' % str(e)
         raw_input(u'Press enter once resolved and we will try enabling the API again.')
       except GAPI_forbidden as e:
         print u'\nThere was an error enabling %s.' % api
-        print u'%s\n' % e.message
+        print u'%s\n' % str(e)
         break
 
   iam = googleapiclient.discovery.build(u'iam', u'v1', http=http, cache_discovery=False)
@@ -9094,7 +9113,7 @@ def doSiteVerifyAttempt():
   try:
     verify_result = callGAPI(verif.webResource(), u'insert', throw_reasons=[GAPI_BAD_REQUEST], verificationMethod=verificationMethod, body=body)
   except GAPI_badRequest as e:
-    print u'ERROR: %s' % e.message
+    print u'ERROR: %s' % str(e)
     verify_data = callGAPI(verif.webResource(), u'getToken', body=body)
     print u'Method:  %s' % verify_data[u'method']
     print u'Token:      %s' % verify_data[u'token']
@@ -10812,7 +10831,7 @@ def doDeleteOAuth():
   try:
     credentials.revoke(httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL]))
   except oauth2client.client.TokenRevokeError as e:
-    stderrErrorMsg(e.message)
+    stderrErrorMsg(str(e))
     os.remove(GC_Values[GC_OAUTH2_TXT])
 
 class cmd_flags(object):
@@ -11175,7 +11194,7 @@ def ProcessGAMCommand(args):
           argv = shlex.split(line)
         except ValueError as e:
           sys.stderr.write(convertUTF8(u'Command: >>>{0}<<<\n'.format(line.strip())))
-          sys.stderr.write(u'{0}{1}\n'.format(ERROR_PREFIX, e.message))
+          sys.stderr.write(u'{0}{1}\n'.format(ERROR_PREFIX, str(e)))
           errors += 1
           continue
         if len(argv) > 0:
