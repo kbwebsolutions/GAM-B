@@ -1,3 +1,13 @@
+4.20.00
+
+Courtesy of Jay, added basic TeamDrive support.
+    <TeamDriveID> ::= <String>
+    gam <UserTypeEntity> add teamdrive <Name>
+    gam <UserTypeEntity> update teamdrive <TeamDriveID> [name <Name>]
+    gam <UserTypeEntity> delete teamdrive <TeamDriveID>
+    gam <UserTypeEntity> show teamdrives
+    gam <UserTypeEntity> print teamdrives [todrive]
+
 4.13.02
 
 Handle corrupt files in gamcache by turning caching off for the current command.

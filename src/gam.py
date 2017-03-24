@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.13.02'
+__version__ = u'4.20.00'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -1136,7 +1136,7 @@ def callGAPI(service, function,
     except TypeError as e:
       systemErrorExit(4, str(e))
 
-def callGAPIpages(service, function, items,
+def callGAPIpages(service, function, items=u'items',
                   page_message=None, message_attribute=None,
                   soft_errors=False, throw_reasons=None, retry_reasons=None,
                   **kwargs):
@@ -1202,6 +1202,7 @@ API_VER_MAPPING = {
   u'datatransfer': u'datatransfer_v1',
   u'directory': u'directory_v1',
   u'drive': u'v2',
+  u'drive3': u'v3',
   u'email-settings': u'v2',
   u'gmail': u'v1',
   u'groupssettings': u'v1',
@@ -1217,6 +1218,8 @@ def getAPIVersion(api):
   version = API_VER_MAPPING.get(api, u'v1')
   if api in [u'directory', u'reports', u'datatransfer']:
     api = u'admin'
+  elif api == u'drive3':
+    api = u'drive'
   return (api, version, u'{0}-{1}'.format(api, version))
 
 def readDiscoveryFile(api_version):
@@ -1245,22 +1248,15 @@ def getOauth2TxtStorageCredentials():
   except (KeyError, ValueError):
     return (storage, None)
 
-def getClientAPIversionHttpService(api):
-  storage, credentials = getOauth2TxtStorageCredentials()
-  if not credentials or credentials.invalid:
-    doRequestOAuth()
-    credentials = storage.get()
-  credentials.user_agent = GAM_INFO
+def getService(api, http):
   api, version, api_version = getAPIVersion(api)
-  http = credentials.authorize(httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL],
-                                             cache=GM_Globals[GM_CACHE_DIR]))
-  retries = 5
+  retries = 3
   for n in range(1, retries+1):
     try:
       service = googleapiclient.discovery.build(api, version, http=http, cache_discovery=False)
       if GM_Globals[GM_CACHE_DISCOVERY_ONLY]:
         http.cache = None
-      return (credentials, service)
+      return service
     except httplib2.ServerNotFoundError as e:
       systemErrorExit(4, str(e))
     except httplib2.CertificateValidationUnsupported:
@@ -1283,13 +1279,20 @@ def getClientAPIversionHttpService(api):
     service = googleapiclient.discovery.build_from_document(discovery, http=http)
     if GM_Globals[GM_CACHE_DISCOVERY_ONLY]:
       http.cache = None
-    return (credentials, service)
-  except (ValueError, KeyError):
+    return service
+  except (KeyError, ValueError):
     invalidJSONExit(disc_file)
 
 def buildGAPIObject(api):
   GM_Globals[GM_CURRENT_API_USER] = None
-  credentials, service = getClientAPIversionHttpService(api)
+  storage, credentials = getOauth2TxtStorageCredentials()
+  if not credentials or credentials.invalid:
+    doRequestOAuth()
+    credentials = storage.get()
+  credentials.user_agent = GAM_INFO
+  http = credentials.authorize(httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL],
+                                             cache=GM_Globals[GM_CACHE_DIR]))
+  service = getService(api, http)
   if GC_Values[GC_DOMAIN]:
     if not GC_Values[GC_CUSTOMER_ID]:
       resp, result = service._http.request(u'https://www.googleapis.com/admin/directory/v1/users?domain={0}&maxResults=1&fields=users(customerId)'.format(GC_Values[GC_DOMAIN]))
@@ -1334,36 +1337,17 @@ API_SCOPE_MAPPING = {
                     u'https://www.googleapis.com/auth/drive'],
   u'calendar': [u'https://www.googleapis.com/auth/calendar',],
   u'drive': [u'https://www.googleapis.com/auth/drive',],
+  u'drive3': [u'https://www.googleapis.com/auth/drive',],
   u'gmail': [u'https://mail.google.com/',
              u'https://www.googleapis.com/auth/gmail.settings.basic',
              u'https://www.googleapis.com/auth/gmail.settings.sharing',],
   u'plus': [u'https://www.googleapis.com/auth/plus.me',],
 }
 
-def getSvcAcctAPIversionHttpService(api):
-  api, version, api_version = getAPIVersion(api)
+def buildGAPIServiceObject(api, act_as, use_scopes=None):
   http = httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL],
                        cache=GM_Globals[GM_CACHE_DIR])
-  try:
-    service = googleapiclient.discovery.build(api, version, http=http, cache_discovery=False)
-    if GM_Globals[GM_CACHE_DISCOVERY_ONLY]:
-      http.cache = None
-    return (api_version, http, service)
-  except httplib2.ServerNotFoundError as e:
-    systemErrorExit(4, e)
-  except googleapiclient.errors.UnknownApiNameOrVersion:
-    pass
-  disc_file, discovery = readDiscoveryFile(api_version)
-  try:
-    service = googleapiclient.discovery.build_from_document(discovery, http=http)
-    if GM_Globals[GM_CACHE_DISCOVERY_ONLY]:
-      http.cache = None
-    return (api_version, http, service)
-  except (ValueError, KeyError):
-    invalidJSONExit(disc_file)
-
-def buildGAPIServiceObject(api, act_as, use_scopes=None):
-  _, http, service = getSvcAcctAPIversionHttpService(api)
+  service = getService(api, http)
   GM_Globals[GM_CURRENT_API_USER] = act_as
   GM_Globals[GM_CURRENT_API_SCOPES] = use_scopes or API_SCOPE_MAPPING[api]
   credentials = getSvcAcctCredentials(GM_Globals[GM_CURRENT_API_SCOPES], act_as)
@@ -1387,6 +1371,10 @@ def buildCalendarGAPIObject(calname):
 def buildDriveGAPIObject(user):
   userEmail = convertUserUIDtoEmailAddress(user)
   return (userEmail, buildGAPIServiceObject(u'drive', userEmail))
+
+def buildDrive3GAPIObject(user):
+  userEmail = convertUserUIDtoEmailAddress(user)
+  return (userEmail, buildGAPIServiceObject(u'drive3', userEmail))
 
 def buildGmailGAPIObject(user):
   userEmail = convertUserUIDtoEmailAddress(user)
@@ -1519,16 +1507,15 @@ def getTodriveParameters(i):
         invalidTodriveDestExit(u'Drive Folder Name', u'Not Found')
   return (i, todrive)
 
+def _adjustDate(errMsg):
+  match_date = re.match(u'Data for dates later than (.*) is not yet available. Please check back later', errMsg)
+  if not match_date:
+    match_date = re.match(u'Start date can not be later than (.*)', errMsg)
+  if not match_date:
+    systemErrorExit(4, errMsg)
+  return unicode(match_date.group(1))
+
 def showReport():
-
-  def _adjustDate(errMsg):
-    match_date = re.match(u'Data for dates later than (.*) is not yet available. Please check back later', errMsg)
-    if not match_date:
-      match_date = re.match(u'Start date can not be later than (.*)', errMsg)
-    if not match_date:
-      systemErrorExit(4, errMsg)
-    return str(match_date.group(1))
-
   rep = buildGAPIObject(u'reports')
   report = sys.argv[2].lower()
   customerId = GC_Values[GC_CUSTOMER_ID]
@@ -1591,6 +1578,8 @@ def showReport():
       try:
         for report_item in user_report[u'parameters']:
           items = report_item.values()
+          if len(items) < 2:
+            continue
           name = items[1]
           value = items[0]
           if not name in titles:
@@ -1615,22 +1604,38 @@ def showReport():
     csvRows = []
     auth_apps = list()
     for item in usage[0][u'parameters']:
+      if u'name' not in item:
+        continue
       name = item[u'name']
-      try:
+      if u'intValue' in item:
         value = item[u'intValue']
-      except KeyError:
+      elif u'msgValue' in item:
         if name == u'accounts:authorized_apps':
           for subitem in item[u'msgValue']:
             app = {}
             for an_item in subitem:
               if an_item == u'client_name':
-                app[u'name'] = u'App: %s' % subitem[an_item]
+                app[u'name'] = u'App: %s' % subitem[an_item].replace(u'\n', u'\\n')
               elif an_item == u'num_users':
                 app[u'value'] = u'%s users' % subitem[an_item]
               elif an_item == u'client_id':
                 app[u'client_id'] = subitem[an_item]
             auth_apps.append(app)
-        continue
+          continue
+        else:
+          values = []
+          for subitem in item[u'msgValue']:
+            if u'count' not in subitem:
+              continue
+            mycount = myvalue = None
+            for key, value in subitem.items():
+              if key == u'count':
+                mycount = value
+              else:
+                myvalue = value
+              if mycount and myvalue:
+                values.append(u'%s:%s' % (myvalue, mycount))
+          value = u' '.join(values)
       csvRows.append({u'name': name, u'value': value})
     for app in auth_apps: # put apps at bottom
       csvRows.append(app)
@@ -2011,6 +2016,33 @@ def doGetCustomerInfo():
   print u'Default Language: {0}'.format(customerInfo[u'language'])
   _showCustomerAddressPhoneNumber(customerInfo)
   print u'Admin Secondary Email: {0}'.format(customerInfo[u'alternateEmail'])
+  parameters = u'accounts:num_users,accounts:apps_total_licenses,accounts:apps_used_licenses'
+  try_date = str(datetime.date.today())
+  customerId = GC_Values[GC_CUSTOMER_ID]
+  if customerId == MY_CUSTOMER:
+    customerId = None
+  rep = buildGAPIObject(u'reports')
+  while True:
+    try:
+      usage = callGAPIpages(rep.customerUsageReports(), u'get', u'usageReports', throw_reasons=[GAPI_INVALID],
+                            customerId=customerId, date=try_date, parameters=parameters)
+      break
+    except GAPI_invalid as e:
+      message = str(e)
+    try_date = _adjustDate(message)
+  print u'User counts as of %s:' % try_date
+  for item in usage[0][u'parameters']:
+    if not u'intValue' in item or int(item[u'intValue']) == 0:
+      continue
+    api_name = name = item[u'name']
+    api_value = int(item[u'intValue'])
+    if api_name == u'accounts:num_users':
+      name = u'Total Users'
+    elif api_name == u'accounts:apps_total_licenses':
+      name = u'G Suite Basic Licenses'
+    elif api_name == u'accounts:apps_used_licenses':
+      name = u'G Suite Basic Users'
+    print u'  {}: {:,}'.format(name, api_value)
   adm = buildGAPIObject(u'admin-settings')
   _printAdminSetting(adm.maximumNumberOfUsers(), MAXIMUM_USERS_MAP)
   _printAdminSetting(adm.currentNumberOfUsers(), CURRENT_USERS_MAP)
@@ -3606,10 +3638,14 @@ def formatACLRule(rule):
   return u'(Scope: {0}, Role: {1})'.format(rule[u'scope'][u'type'], rule[u'role'])
 
 def doCalendarShowACL():
-  cal = buildGAPIObject(u'calendar')
   show_cal = sys.argv[2]
-  if show_cal.find(u'@') == -1:
-    show_cal = u'%s@%s' % (show_cal, GC_Values[GC_DOMAIN])
+  show_cal, cal = buildCalendarGAPIObject(show_cal)
+  try:
+    # Force service account token request. If we fail fall back to
+    # using admin for delegation
+    cal._http.request.credentials.refresh(httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL]))
+  except oauth2client.client.HttpAccessTokenRefreshError:
+    _, cal = buildCalendarGAPIObject(_getAdminUserFromOAuth())
   acls = callGAPIitems(cal.acl(), u'list', u'items', calendarId=show_cal)
   i = 0
   count = len(acls)
@@ -3618,10 +3654,15 @@ def doCalendarShowACL():
     print u'Calendar: {0}, ACL: {1}{2}'.format(show_cal, formatACLRule(rule), currentCount(i, count))
 
 def doCalendarAddACL(calendarId=None, act_as=None, role=None, scope=None, entity=None):
-  if act_as is not None:
-    act_as, cal = buildCalendarGAPIObject(act_as)
-  else:
-    cal = buildGAPIObject(u'calendar')
+  if not act_as:
+    act_as = calendarId
+  _, cal = buildCalendarGAPIObject(act_as)
+  try:
+    # Force service account token request. If we fail fall back to
+    # using admin for delegation
+    cal._http.request.credentials.refresh(httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL]))
+  except oauth2client.client.HttpAccessTokenRefreshError:
+    _, cal = buildCalendarGAPIObject(_getAdminUserFromOAuth())
   body = {u'scope': {}}
   if calendarId is None:
     calendarId = sys.argv[2]
@@ -3697,7 +3738,7 @@ def doCalendarDeleteEvent():
     return
   events = []
   sendNotifications = None
-  doIt = False
+  doit = False
   i = 4
   while i < len(sys.argv):
     if sys.argv[i].lower() == u'notifyattendees':
@@ -3714,12 +3755,12 @@ def doCalendarDeleteEvent():
           events.append(event[u'id'])
       i += 2
     elif sys.argv[i].lower() == u'doit':
-      doIt = True
+      doit = True
       i += 1
     else:
       print u'ERROR: %s is not a valid argument for "gam calendar <email> deleteevent"' % sys.argv[i]
       sys.exit(2)
-  if doIt:
+  if doit:
     for eventId in events:
       print u' deleting eventId %s' % eventId
       callGAPI(cal.events(), u'delete', calendarId=calendarId, eventId=eventId, sendNotifications=sendNotifications)
@@ -4073,31 +4114,29 @@ def printDriveSettings(users):
     else:
       print u'ERROR: %s is not a valid argument for "gam <users> show drivesettings"' % sys.argv[i]
       sys.exit(2)
-  dont_show = [u'kind', u'selfLink', u'exportFormats', u'importFormats', u'maxUploadSizes', u'additionalRoleInfo', u'etag', u'features', u'user', u'isCurrentAppInstalled']
+  dont_show = [u'kind', u'exportFormats', u'importFormats', u'maxUploadSize', u'maxImportSizes', u'user', u'appInstalled']
   csvRows = []
   titles = [u'email',]
   i = 0
   count = len(users)
   for user in users:
     i += 1
-    user, drive = buildDriveGAPIObject(user)
+    user, drive = buildDrive3GAPIObject(user)
     if not drive:
       continue
     sys.stderr.write(u'Getting Drive settings for %s (%s/%s)\n' % (user, i, count))
-    feed = callGAPI(drive.about(), u'get', soft_errors=True)
+    feed = callGAPI(drive.about(), u'get', fields=u'*', soft_errors=True)
     if feed is None:
       continue
     row = {u'email': user}
     for setting in feed:
       if setting in dont_show:
         continue
-      if setting == u'quotaBytesByService':
-        for subsetting in feed[setting]:
-          my_name = subsetting[u'serviceName']
-          my_bytes = int(subsetting[u'bytesUsed'])
-          row[my_name] = u'%smb' % (my_bytes / 1024 / 1024)
-          if my_name not in titles:
-            titles.append(my_name)
+      if setting == u'storageQuota':
+        for subsetting, value in feed[setting].iteritems():
+          row[subsetting] = u'%smb' % (int(value) / 1024 / 1024)
+          if subsetting not in titles:
+            titles.append(subsetting)
         continue
       row[setting] = feed[setting]
       if setting not in titles:
@@ -4152,127 +4191,142 @@ def printPermission(permission):
   for key in permission:
     if key in [u'name', u'kind', u'etag', u'selfLink',]:
       continue
-    print u' %s: %s' % (key, permission[key])
+    print convertUTF8(u' %s: %s' % (key, permission[key]))
 
 def showDriveFileACL(users):
   fileId = sys.argv[5]
   for user in users:
-    user, drive = buildDriveGAPIObject(user)
+    user, drive = buildDrive3GAPIObject(user)
     if not drive:
       continue
-    feed = callGAPI(drive.permissions(), u'list', fileId=fileId)
-    for permission in feed[u'items']:
+    feed = callGAPIpages(drive.permissions(), u'list', items=u'permissions', fileId=fileId, fields=u'*', supportsTeamDrives=True)
+    for permission in feed:
       printPermission(permission)
       print u''
 
 def getPermissionId(argstr):
   permissionId = argstr.strip().lower()
   if permissionId[:3] == u'id:':
-    return (False, argstr.strip()[3:])
+    return argstr.strip()[3:]
   if permissionId == u'anyone':
-    return (False, permissionId)
+    return u'anyone'
   if permissionId == u'anyonewithlink':
-    return (False, u'anyoneWithLink')
+    return u'anyoneWithLink'
   if permissionId.find(u'@') == -1:
     permissionId = u'%s@%s' % (permissionId, GC_Values[GC_DOMAIN])
-  return (True, permissionId)
+  admin_email = _getAdminUserFromOAuth()
+  # We have to use v2 here since v3 has no permissions.getIdForEmail equivalent
+  # https://code.google.com/a/google.com/p/apps-api-issues/issues/detail?id=4313
+  _, drive2 = buildDriveGAPIObject(admin_email)
+  return callGAPI(drive2.permissions(), u'getIdForEmail', email=permissionId, fields=u'id')[u'id']
 
 def delDriveFileACL(users):
   fileId = sys.argv[5]
-  isEmail, permissionId = getPermissionId(sys.argv[6])
+  permissionId = getPermissionId(sys.argv[6])
   for user in users:
-    user, drive = buildDriveGAPIObject(user)
+    user, drive = buildDrive3GAPIObject(user)
     if not drive:
       continue
-    if isEmail:
-      permissionId = callGAPI(drive.permissions(), u'getIdForEmail', email=permissionId, fields=u'id')[u'id']
-      isEmail = False
     print u'Removing permission for %s from %s' % (permissionId, fileId)
-    callGAPI(drive.permissions(), u'delete', fileId=fileId, permissionId=permissionId)
+    callGAPI(drive.permissions(), u'delete', fileId=fileId, permissionId=permissionId, supportsTeamDrives=True)
 
 def addDriveFileACL(users):
   fileId = sys.argv[5]
   body = {u'type': sys.argv[6].lower()}
-  sendNotificationEmails = False
+  sendNotificationEmail = False
   emailMessage = None
-  if body[u'type'] not in [u'user', u'group', u'domain', u'anyone']:
-    print u'ERROR: permission type must be user, group domain or anyone; got %s' % body[u'type']
+  transferOwnership = None
   if body[u'type'] == u'anyone':
     i = 7
-  else:
-    body[u'value'] = sys.argv[7]
+  elif body[u'type'] in [u'user', u'group']:
+    body[u'emailAddress'] = sys.argv[7]
     i = 8
+  elif body[u'type'] == u'domain':
+    body[u'domain'] = sys.argv[7]
+    i = 8
+  else:
+    print u'ERROR: permission type must be user, group domain or anyone; got %s' % body[u'type']
+    sys.exit(5)
   while i < len(sys.argv):
     if sys.argv[i].lower().replace(u'_', u'') == u'withlink':
-      body[u'withLink'] = True
+      body[u'allowFileDiscovery'] = False
+      i += 1
+    elif sys.argv[i].lower() == u'discoverable':
+      body[u'allowFileDiscovery'] = True
       i += 1
     elif sys.argv[i].lower() == u'role':
       body[u'role'] = sys.argv[i+1]
-      if body[u'role'] not in [u'reader', u'commenter', u'writer', u'owner', u'editor']:
-        print u'ERROR: role must be reader, commenter, writer or owner; got %s' % body[u'role']
+      if body[u'role'] not in [u'reader', u'commenter', u'writer', u'owner', u'organizer', u'editor']:
+        print u'ERROR: role must be reader, commenter, writer, organizer, or owner; got %s' % body[u'role']
         sys.exit(2)
-      if body[u'role'] == u'commenter':
-        body[u'role'] = u'reader'
-        body[u'additionalRoles'] = [u'commenter']
-      elif body[u'role'] == u'editor':
+      if body[u'role'] == u'editor':
         body[u'role'] = u'writer'
+      elif body[u'role'] == u'owner':
+        sendNotificationEmail = True
+        transferOwnership = True
       i += 2
     elif sys.argv[i].lower().replace(u'_', u'') == u'sendemail':
-      sendNotificationEmails = True
+      sendNotificationEmail = True
       i += 1
     elif sys.argv[i].lower().replace(u'_', u'') == u'emailmessage':
-      sendNotificationEmails = True
+      sendNotificationEmail = True
       emailMessage = sys.argv[i+1]
+      i += 2
+    elif sys.argv[i].lower() == u'expires':
+      body[u'expirationTime'] = sys.argv[i+1]
       i += 2
     else:
       print u'ERROR: %s is not a valid argument for "gam <users> add drivefileacl"' % sys.argv[i]
       sys.exit(2)
   for user in users:
-    user, drive = buildDriveGAPIObject(user)
+    user, drive = buildDrive3GAPIObject(user)
     if not drive:
       continue
-    result = callGAPI(drive.permissions(), u'insert', fileId=fileId, sendNotificationEmails=sendNotificationEmails, emailMessage=emailMessage, body=body)
+    result = callGAPI(drive.permissions(), u'create', fields=u'*',
+                      fileId=fileId, sendNotificationEmail=sendNotificationEmail,
+                      emailMessage=emailMessage, body=body, supportsTeamDrives=True,
+                      transferOwnership=transferOwnership)
     printPermission(result)
 
 def updateDriveFileACL(users):
   fileId = sys.argv[5]
-  isEmail, permissionId = getPermissionId(sys.argv[6])
+  permissionId = getPermissionId(sys.argv[6])
   transferOwnership = None
+  removeExpiration = None
   body = {}
   i = 7
   while i < len(sys.argv):
     if sys.argv[i].lower().replace(u'_', u'') == u'withlink':
-      body[u'withLink'] = True
+      body[u'allowFileDiscovery'] = False
+      i += 1
+    elif sys.argv[i].lower() == u'discoverable':
+      body[u'allowFileDiscovery'] = True
+      i += 1
+    elif sys.argv[i].lower().replace(u'_', u'') == u'removeexpiration':
+      removeExpiration = True
       i += 1
     elif sys.argv[i].lower() == u'role':
       body[u'role'] = sys.argv[i+1]
-      if body[u'role'] not in [u'reader', u'commenter', u'writer', u'owner']:
-        print u'ERROR: role must be reader, commenter, writer or owner; got %s' % body[u'role']
+      if body[u'role'] not in [u'reader', u'commenter', u'writer', u'owner', u'organizer', u'editor']:
+        print u'ERROR: role must be reader, commenter, writer, organizer, or owner; got %s' % body[u'role']
         sys.exit(2)
-      if body[u'role'] == u'commenter':
-        body[u'role'] = u'reader'
-        body[u'additionalRoles'] = [u'commenter']
-      i += 2
-    elif sys.argv[i].lower().replace(u'_', u'') == u'transferownership':
-      if sys.argv[i+1].lower() in true_values:
+      if body[u'role'] == u'editor':
+        body[u'role'] = u'writer'
+      elif body[u'role'] == u'owner':
         transferOwnership = True
-      elif sys.argv[i+1].lower() in false_values:
-        transferOwnership = False
-      else:
-        print u'ERROR: transferownership must be true or false; got %s' % sys.argv[i+1].lower()
       i += 2
     else:
       print u'ERROR: %s is not a valid argument for "gam <users> update drivefileacl"' % sys.argv[i]
       sys.exit(2)
   for user in users:
-    user, drive = buildDriveGAPIObject(user)
+    user, drive = buildDrive3GAPIObject(user)
     if not drive:
       continue
-    if isEmail:
-      permissionId = callGAPI(drive.permissions(), u'getIdForEmail', email=permissionId, fields=u'id')[u'id']
-      isEmail = False
     print u'updating permissions for %s to file %s' % (permissionId, fileId)
-    result = callGAPI(drive.permissions(), u'patch', fileId=fileId, permissionId=permissionId, transferOwnership=transferOwnership, body=body)
+    result = callGAPI(drive.permissions(), u'update', fields=u'*',
+                      fileId=fileId, permissionId=permissionId, removeExpiration=removeExpiration,
+                      transferOwnership=transferOwnership, body=body,
+                      supportsTeamDrives=True)
     printPermission(result)
 
 def _stripMeInOwners(query):
@@ -4379,7 +4433,8 @@ DRIVEFILE_ORDERBY_CHOICES_MAP = {
   }
 
 def printDriveFileList(users):
-  allfields = anyowner = todrive = {}
+  allfields = anyowner = False
+  todrive = {}
   fieldsList = []
   fieldsTitles = {}
   labelsList = []
@@ -4568,7 +4623,7 @@ def deleteDriveFile(users):
     for fileId in file_ids:
       i += 1
       print u'%s %s for %s (%s/%s)' % (action, fileId, user, i, len(file_ids))
-      callGAPI(drive.files(), function, fileId=fileId)
+      callGAPI(drive.files(), function, fileId=fileId, supportsTeamDrives=True)
 
 def printDriveFolderContents(feed, folderId, indent):
   for f_file in feed:
@@ -4652,7 +4707,7 @@ def deleteEmptyDriveFolders(users):
 
 def doEmptyDriveTrash(users):
   for user in users:
-    user, drive = buildDriveGAPIObject(user)
+    user, drive = buildDrive3GAPIObject(user)
     if not drive:
       continue
     print u'Emptying Drive trash for %s' % user
@@ -4812,16 +4867,26 @@ def doUpdateDriveFile(users):
       for fileId in fileIdSelection[u'fileIds']:
         if media_body:
           result = callGAPI(drive.files(), u'update',
-                            fileId=fileId, convert=parameters[DFA_CONVERT], ocr=parameters[DFA_OCR], ocrLanguage=parameters[DFA_OCRLANGUAGE], media_body=media_body, body=body, fields=u'id')
+                            fileId=fileId, convert=parameters[DFA_CONVERT],
+                            ocr=parameters[DFA_OCR],
+                            ocrLanguage=parameters[DFA_OCRLANGUAGE],
+                            media_body=media_body, body=body, fields=u'id',
+                            supportsTeamDrives=True)
           print u'Successfully updated %s drive file with content from %s' % (result[u'id'], parameters[DFA_LOCALFILENAME])
         else:
           result = callGAPI(drive.files(), u'patch',
-                            fileId=fileId, convert=parameters[DFA_CONVERT], ocr=parameters[DFA_OCR], ocrLanguage=parameters[DFA_OCRLANGUAGE], body=body, fields=u'id')
+                            fileId=fileId, convert=parameters[DFA_CONVERT],
+                            ocr=parameters[DFA_OCR],
+                            ocrLanguage=parameters[DFA_OCRLANGUAGE], body=body,
+                            fields=u'id', supportsTeamDrives=True)
           print u'Successfully updated drive file/folder ID %s' % (result[u'id'])
     else:
       for fileId in fileIdSelection[u'fileIds']:
         result = callGAPI(drive.files(), u'copy',
-                          fileId=fileId, convert=parameters[DFA_CONVERT], ocr=parameters[DFA_OCR], ocrLanguage=parameters[DFA_OCRLANGUAGE], body=body, fields=u'id')
+                          fileId=fileId, convert=parameters[DFA_CONVERT],
+                          ocr=parameters[DFA_OCR],
+                          ocrLanguage=parameters[DFA_OCRLANGUAGE],
+                          body=body, fields=u'id', supportsTeamDrives=True)
         print u'Successfully copied %s to %s' % (fileId, result[u'id'])
 
 def createDriveFile(users):
@@ -4847,7 +4912,10 @@ def createDriveFile(users):
     if parameters[DFA_LOCALFILEPATH]:
       media_body = googleapiclient.http.MediaFileUpload(parameters[DFA_LOCALFILEPATH], mimetype=parameters[DFA_LOCALMIMETYPE], resumable=True)
     result = callGAPI(drive.files(), u'insert',
-                      convert=parameters[DFA_CONVERT], ocr=parameters[DFA_OCR], ocrLanguage=parameters[DFA_OCRLANGUAGE], media_body=media_body, body=body, fields=u'id')
+                      convert=parameters[DFA_CONVERT], ocr=parameters[DFA_OCR],
+                      ocrLanguage=parameters[DFA_OCRLANGUAGE],
+                      media_body=media_body, body=body, fields=u'id',
+                      supportsTeamDrives=True)
     if parameters[DFA_LOCALFILENAME]:
       print u'Successfully uploaded %s to Drive file ID %s' % (parameters[DFA_LOCALFILENAME], result[u'id'])
     else:
@@ -4948,7 +5016,9 @@ def downloadDriveFile(users):
     i = 0
     for fileId in fileIdSelection[u'fileIds']:
       extension = None
-      result = callGAPI(drive.files(), u'get', fileId=fileId, fields=u'fileSize,title,mimeType,downloadUrl,exportLinks')
+      result = callGAPI(drive.files(), u'get', fileId=fileId,
+                        fields=u'fileSize,title,mimeType,downloadUrl,exportLinks',
+                        supportsTeamDrives=True)
       if result[u'mimeType'] == MIMETYPE_GA_FOLDER:
         print convertUTF8(u'Skipping download of folder %s' % result[u'title'])
         continue
@@ -5027,7 +5097,7 @@ def showDriveFileInfo(users):
     user, drive = buildDriveGAPIObject(user)
     if not drive:
       continue
-    feed = callGAPI(drive.files(), u'get', soft_errors=True, fileId=fileId, fields=fields)
+    feed = callGAPI(drive.files(), u'get', fileId=fileId, fields=fields, supportsTeamDrives=True)
     if feed:
       print_json(None, feed)
 
@@ -7509,18 +7579,20 @@ def doCreateProject(login_hint=None):
       print u'Checking project status...'
       status = callGAPI(crm.operations(), u'get', name=operation_name)
       if u'error' in status:
-        if u'message' in status[u'error'] and status[u'error'][u'message'].find(u'Callers must accept ToS') != -1:
-          print u'''Please go to:
+        try:
+          if status[u'error'][u'details'][0][u'violations'][0][u'description'] == u'Callers must accept Terms of Service':
+            print u'''Please go to:
 
 https://console.cloud.google.com/start
 
 and accept the Terms of Service (ToS). As soon as you've accepted the ToS popup, you can return here and press enter.'''
-          raw_input()
-          create_again = True
-          break
-        else:
-          print status
-          sys.exit(1)
+            raw_input()
+            create_again = True
+            break
+        except (IndexError, KeyError):
+          pass
+        print status
+        sys.exit(1)
       if u'done' in status and status[u'done']:
         break
       sleep_time = i ** 2
@@ -7554,7 +7626,6 @@ and accept the Terms of Service (ToS). As soon as you've accepted the ToS popup,
         print u'\nThere was an error enabling %s.' % api
         print u'%s\n' % str(e)
         break
-
   iam = googleapiclient.discovery.build(u'iam', u'v1', http=http, cache_discovery=False)
   print u'Creating Service Account'
   service_account = callGAPI(iam.projects().serviceAccounts(), u'create', name=u'projects/%s' % project_id,
@@ -7609,6 +7680,83 @@ and accept the Terms of Service (ToS). As soon as you've accepted the ToS popup,
 '''
   raw_input(u'Press Enter when done...')
   print u'That\'s it! Your GAM Project is created and ready to use.'
+
+def doCreateTeamDrive(users):
+  import uuid
+  body = {u'name': sys.argv[5]}
+  for user in users:
+    drive = buildGAPIServiceObject(u'drive3', user)
+    requestId = unicode(uuid.uuid4())
+    result = callGAPI(drive.teamdrives(), u'create', requestId=requestId, body=body, fields=u'id')
+    print u'Created Team Drive %s with id %s' % (body[u'name'], result[u'id'])
+
+def doUpdateTeamDrive(users):
+  teamDriveId = sys.argv[5]
+  body = {}
+  i = 6
+  while i < len(sys.argv):
+    if sys.argv[i].lower() == u'name':
+      body[u'name'] = sys.argv[i+1]
+      i += 2
+    else:
+      print u'ERROR: %s is not a valid argument for "gam <users> update drivefile"'
+      sys.exit(3)
+  if not body:
+    print u'ERROR: nothing to update. Need at least a name argument.'
+    print body
+    sys.exit(4)
+  for user in users:
+    user, drive = buildDrive3GAPIObject(user)
+    if not drive:
+      continue
+    result = callGAPI(drive.teamdrives(), u'update', body=body, teamDriveId=teamDriveId, fields=u'', soft_errors=True)
+    if not result:
+      continue
+    print u'Updated Team Drive %s' % (teamDriveId)
+
+def printShowTeamDrives(users, csvFormat):
+  todrive = False
+  i = 5
+  while i < len(sys.argv):
+    if sys.argv[i].lower() == u'todrive':
+      todrive = True
+      i += 1
+    else:
+      print u'ERROR: %s is not a valid argument for "gam <users> print|show teamdrives"'
+      sys.exit(3)
+  tds = []
+  for user in users:
+    sys.stderr.write(u'Getting Team Drives for %s\n' % user)
+    user, drive = buildDrive3GAPIObject(user)
+    if not drive:
+      continue
+    results = callGAPIpages(drive.teamdrives(), u'list', items=u'teamDrives', fields=u'*', soft_errors=True)
+    if not results:
+      continue
+    for td in results:
+      if u'id' not in td:
+        continue
+      if u'name' not in td:
+        td[u'name'] = u'<Unknown Team Drive>'
+      this_td = {u'id': td[u'id'], u'name': td[u'name']}
+      if this_td in tds:
+        continue
+      tds.append({u'id': td[u'id'], u'name': td[u'name']})
+  if csvFormat:
+    titles = [u'name', u'id']
+    writeCSVfile(tds, titles, u'Team Drives', todrive)
+  else:
+    for td in tds:
+      print u'Name: %s  ID: %s' % (td[u'name'], td[u'id'])
+
+def doDeleteTeamDrive(users):
+  teamDriveId = sys.argv[5]
+  for user in users:
+    user, drive = buildDrive3GAPIObject(user)
+    if not drive:
+      continue
+    print u'Deleting Team Drive %s' % (teamDriveId)
+    callGAPI(drive.teamdrives(), u'delete', teamDriveId=teamDriveId, soft_errors=True)
 
 def doCreateUser():
   cd = buildGAPIObject(u'directory')
@@ -7971,7 +8119,9 @@ def doUpdateGroup():
                 print u'ERROR: %s must be a number ending with M (megabytes), K (kilobytes) or nothing (bytes); got %s' % value
                 sys.exit(2)
             elif params[u'type'] == u'string':
-              if params[u'description'].find(value.upper()) != -1: # ugly hack because API wants some values uppercased.
+              if attrib == u'description':
+                value = value.replace(u'\\n', u'\n')
+              elif params[u'description'].find(value.upper()) != -1: # ugly hack because API wants some values uppercased.
                 value = value.upper()
               elif value.lower() in true_values:
                 value = u'true'
@@ -8460,6 +8610,13 @@ def doCreateResoldCustomer():
   result = callGAPI(res.customers(), u'insert', body=body, customerAuthToken=customerAuthToken, fields=u'customerId,customerDomain')
   print u'Created customer %s with id %s' % (result[u'customerDomain'], result[u'customerId'])
 
+def _getAdminUserFromOAuth():
+  storage, credentials = getOauth2TxtStorageCredentials()
+  if credentials is None or credentials.invalid:
+    doRequestOAuth()
+    credentials = storage.get()
+  return credentials.id_token.get(u'email', u'Unknown')
+
 def doGetUserInfo(user_email=None):
 
   def user_lic_result(request_id, response, exception):
@@ -8473,11 +8630,7 @@ def doGetUserInfo(user_email=None):
       user_email = sys.argv[3]
       i = 4
     else:
-      storage, credentials = getOauth2TxtStorageCredentials()
-      if credentials is None or credentials.invalid:
-        doRequestOAuth()
-        credentials = storage.get()
-      user_email = credentials.id_token[u'email']
+      user_email = _getAdminUserFromOAuth()
   if user_email[:4].lower() == u'uid:':
     user_email = user_email[4:]
   elif user_email.find(u'@') == -1:
@@ -9515,16 +9668,16 @@ def doDeleteOrg():
 # Send an email
 def send_email(msg_subj, msg_txt, msg_rcpt=None):
   from email.mime.text import MIMEText
-  gmail = buildGAPIObject(u'gmail')
-  sender_email = gmail._http.request.credentials.id_token[u'email']
+  userId = _getAdminUserFromOAuth()
+  userId, gmail = buildGmailGAPIObject(userId)
   if not msg_rcpt:
-    msg_rcpt = sender_email
+    msg_rcpt = userId
   msg = MIMEText(msg_txt)
   msg[u'Subject'] = msg_subj
-  msg[u'From'] = sender_email
+  msg[u'From'] = userId
   msg[u'To'] = msg_rcpt
   callGAPI(gmail.users().messages(), u'send',
-           userId=sender_email, body={u'raw': base64.urlsafe_b64encode(msg.as_string())})
+           userId=userId, body={u'raw': base64.urlsafe_b64encode(msg.as_string())})
 
 # Write a CSV file
 def addTitleToCSVfile(title, titles):
@@ -9598,22 +9751,27 @@ def writeCSVfile(csvRows, titles, list_type, todrive):
     columns = len(csvRows[0])
     rows = len(csvRows)
     cell_count = rows * columns
-    convert = True
+    mimeType = u'application/vnd.google-apps.spreadsheet'
     if cell_count > 500000 or columns > 256:
       print u'{0}{1}'.format(WARNING_PREFIX, MESSAGE_RESULTS_TOO_LARGE_FOR_GOOGLE_SPREADSHEET)
-      convert = False
+      mimeType = u'text/csv'
     title = todrive[u'title'] or u'{0} - {1}'.format(GC_Values[GC_DOMAIN], list_type)
     if todrive[u'timestamp']:
       timestamp = datetime.datetime.now()+datetime.timedelta(days=-todrive[u'daysoffset'], hours=-todrive[u'hoursoffset'])
       title += u' - '+timestamp.isoformat()
     if todrive['user']:
-      _, drive = buildDriveGAPIObject(todrive[u'user'])
+      _, drive = buildDrive3GAPIObject(todrive[u'user'])
     else:
-      drive = buildGAPIObject(u'drive')
-    result = callGAPI(drive.files(), u'insert', convert=convert,
-                      body={u'parents': [{u'id': todrive[u'parentId']}], u'description': u' '.join(sys.argv), u'title': title, u'mimeType': u'text/csv'},
-                      media_body=googleapiclient.http.MediaInMemoryUpload(string_file.getvalue(), mimetype=u'text/csv'))
-    file_url = result[u'alternateLink']
+      _, drive = buildDrive3GAPIObject(_getAdminUserFromOAuth())
+    body = {u'description': u' '.join(sys.argv),
+            u'name': title,
+            u'mimeType': mimeType,
+            u'parents': [todrive[u'parentId']]}
+    result = callGAPI(drive.files(), u'create', fields=u'webViewLink',
+                      body=body,
+                      media_body=googleapiclient.http.MediaInMemoryUpload(string_file.getvalue(),
+                                                                          mimetype=u'text/csv'))
+    file_url = result[u'webViewLink']
     if GC_Values[GC_NO_BROWSER]:
       msg_txt = u'Drive file uploaded to:\n %s' % file_url
       msg_subj = u'%s - %s' % (GC_Values[GC_DOMAIN], list_type)
@@ -10870,18 +11028,12 @@ OAUTH2_SCOPES = [
   {u'name': u'Group Settings API',
    u'subscopes': [],
    u'scopes': u'https://www.googleapis.com/auth/apps.groups.settings'},
-  {u'name': u'Calendar Data API',
-   u'subscopes': [u'readonly'],
-   u'scopes': u'https://www.googleapis.com/auth/calendar'},
   {u'name': u'Audit Reports API',
    u'subscopes': [],
    u'scopes': u'https://www.googleapis.com/auth/admin.reports.audit.readonly'},
   {u'name': u'Usage Reports API',
    u'subscopes': [],
    u'scopes': u'https://www.googleapis.com/auth/admin.reports.usage.readonly'},
-  {u'name': u'Drive API - Admin user manage report documents in Google Drive',
-   u'subscopes': [],
-   u'scopes': u'https://www.googleapis.com/auth/drive'},
   {u'name': u'License Manager API',
    u'subscopes': [],
    u'scopes': u'https://www.googleapis.com/auth/apps.licensing'},
@@ -10894,9 +11046,6 @@ OAUTH2_SCOPES = [
   {u'name': u'Site Verification API',
    u'subscopes': [],
    u'scopes': u'https://www.googleapis.com/auth/siteverification'},
-  {u'name': u'Gmail API - send report docs todrive notifications only',
-   u'subscopes': [],
-   u'scopes': u'https://www.googleapis.com/auth/gmail.send'},
   {u'name': u'User Schema Directory API',
    u'subscopes': [u'readonly'],
    u'scopes': u'https://www.googleapis.com/auth/admin.directory.userschema'},
@@ -10946,6 +11095,7 @@ OAUTH2_MENU += '''
      c)  Continue to authorization
 '''
 OAUTH2_CMDS = [u's', u'u', u'e', u'c']
+MAXIMUM_SCOPES = 28 # max of 30 - 2 for email scope always included
 
 def doRequestOAuth(login_hint=None):
   def _checkMakeScopesList(scopes):
@@ -10960,9 +11110,11 @@ def doRequestOAuth(login_hint=None):
         scopes.append(u'%s.readonly' % OAUTH2_SCOPES[i][u'scopes'])
       elif selected_scopes[i] == u'A':
         scopes.append(u'%s.action' % OAUTH2_SCOPES[i][u'scopes'])
+    if len(scopes) > MAXIMUM_SCOPES:
+      return (False, u'ERROR: {0} scopes selected, maximum is {1}, please unselect some.\n'.format(len(scopes), MAXIMUM_SCOPES))
     if len(scopes) == 0:
       return (False, u'ERROR: No scopes selected, please select at least one.\n')
-    scopes.insert(0, u'profile') # Email Display Scope, always included
+    scopes.insert(0, u'email') # Email Display Scope, always included
     return (True, u'')
 
   MISSING_CLIENT_SECRETS_MESSAGE = u'''To use GAM you need to create an API project. Please run:
@@ -11094,11 +11246,6 @@ def run_batch(items):
     pool.terminate()
   pool.join()
 
-def runCmdForUsers(cmd, users, **kwargs):
-  if (GC_Values[GC_AUTO_BATCH_MIN] < 0) and (len(users) > -GC_Values[GC_AUTO_BATCH_MIN]):
-    run_batch([[u'gam', u'user', user]+sys.argv[3:] for user in users])
-  else:
-    cmd(users, **kwargs)
 #
 # Process command line arguments, find substitutions
 # An argument containing instances of ~~xxx~~ has xxx replaced by the value of field xxx from the CSV file
@@ -11161,6 +11308,12 @@ def processSubFields(GAM_argv, row, subFields):
     argv[GAM_argvI] = argv[GAM_argvI].encode(GM_Globals[GM_SYS_ENCODING])
   return argv
 
+def runCmdForUsers(cmd, users, **kwargs):
+  if (GC_Values[GC_AUTO_BATCH_MIN] < 0) and (len(users) > -GC_Values[GC_AUTO_BATCH_MIN]):
+    run_batch([[u'gam', u'user', user]+sys.argv[3:] for user in users])
+  else:
+    cmd(users, **kwargs)
+
 def resetDefaultEncodingToUTF8():
   if sys.getdefaultencoding().upper() != u'UTF-8':
     reload(sys)
@@ -11214,7 +11367,7 @@ def ProcessGAMCommand(args):
         run_batch(items)
         sys.exit(0)
       else:
-        sys.stderr.write(u'{0}batch file: {1}, not processed, {2} {3}\n'.format(ERROR_PREFIX, filename, errors, singularPlural(u'error', u's', errors)))
+        sys.stderr.write(u'{0}batch file: {1}, not processed, {2} error{3}\n'.format(ERROR_PREFIX, filename, errors, [u'', u's'][errors != 1]))
         sys.exit(2)
     elif command == u'csv':
       if httplib2.debuglevel > 0:
@@ -11617,6 +11770,8 @@ def ProcessGAMCommand(args):
         printShowFilters(users, False)
       elif showWhat in [u'forwardingaddress', u'forwardingaddresses']:
         printShowForwardingAddresses(users, False)
+      elif showWhat in [u'teamdrive', u'teamdrives']:
+        printShowTeamDrives(users, False)
       else:
         print u'ERROR: %s is not a valid argument for "gam <users> show"' % showWhat
         sys.exit(2)
@@ -11645,6 +11800,8 @@ def ProcessGAMCommand(args):
         printShowSmime(users, True)
       elif printWhat in [u'token', u'tokens', u'oauth', u'3lo']:
         printShowTokens(5, u'users', users, True)
+      elif printWhat in [u'teamdrive', u'teamdrives']:
+        printShowTeamDrives(users, True)
       else:
         print u'ERROR: %s is not a valid argument for "gam <users> print"' % printWhat
         sys.exit(2)
@@ -11742,6 +11899,8 @@ def ProcessGAMCommand(args):
         deleteSendAs(users)
       elif delWhat == u'smime':
         deleteSmime(users)
+      elif delWhat == u'teamdrive':
+        doDeleteTeamDrive(users)
       else:
         print u'ERROR: %s is not a valid argument for "gam <users> delete"' % delWhat
         sys.exit(2)
@@ -11767,6 +11926,8 @@ def ProcessGAMCommand(args):
         addUpdateSendAs(users, 5, True)
       elif addWhat == u'smime':
         addSmime(users)
+      elif addWhat == u'teamdrive':
+        doCreateTeamDrive(users)
       else:
         print u'ERROR: %s is not a valid argument for "gam <users> add"' % addWhat
         sys.exit(2)
@@ -11796,6 +11957,8 @@ def ProcessGAMCommand(args):
         addUpdateSendAs(users, 5, False)
       elif updateWhat == u'smime':
         updateSmime(users)
+      elif updateWhat == u'teamdrive':
+        doUpdateTeamDrive(users)
       else:
         print u'ERROR: %s is not a valid argument for "gam <users> update"' % updateWhat
         sys.exit(2)
@@ -11862,6 +12025,7 @@ def ProcessGAMCommand(args):
     GM_Globals[GM_SYSEXITRC] = e.code
   return GM_Globals[GM_SYSEXITRC]
 
+#
 # From: https://github.com/pyinstaller/pyinstaller/wiki/Recipe-Multiprocessing
 #
 if sys.platform.startswith('win'):
