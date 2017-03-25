@@ -1,3 +1,7 @@
+4.20.01
+
+Fix gam <UserTypeEntity> add smime, original code from Jay was not correct.
+
 4.20.00
 
 Courtesy of Jay, added basic TeamDrive support.
