@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.20.02'
+__version__ = u'4.20.03'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -9665,12 +9665,9 @@ def doDeleteOrg():
   callGAPI(cd.orgunits(), u'delete', customerId=GC_Values[GC_CUSTOMER_ID], orgUnitPath=name)
 
 # Send an email
-def send_email(msg_subj, msg_txt, msg_rcpt=None):
+def send_email(msg_subj, msg_txt, msg_rcpt):
   from email.mime.text import MIMEText
-  userId = _getAdminUserFromOAuth()
-  userId, gmail = buildGmailGAPIObject(userId)
-  if not msg_rcpt:
-    msg_rcpt = userId
+  userId, gmail = buildGmailGAPIObject(_getAdminUserFromOAuth())
   msg = MIMEText(msg_txt)
   msg[u'Subject'] = msg_subj
   msg[u'From'] = userId
@@ -9770,8 +9767,7 @@ def writeCSVfile(csvRows, titles, list_type, todrive):
     file_url = result[u'webViewLink']
     if GC_Values[GC_NO_BROWSER]:
       msg_txt = u'Drive file uploaded to:\n %s' % file_url
-      msg_subj = u'%s - %s' % (GC_Values[GC_DOMAIN], list_type)
-      send_email(msg_subj, msg_txt)
+      send_email(title, msg_txt, todrive[u'user'])
       print msg_txt
     else:
       import webbrowser
