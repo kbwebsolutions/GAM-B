@@ -1,3 +1,7 @@
+4.20.02
+
+Use service account for uploading todrive reports and sending email messages when no_browser is true.
+
 4.20.01
 
 Fix gam <UserTypeEntity> add smime, original code from Jay was not correct.

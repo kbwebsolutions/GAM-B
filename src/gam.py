@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.20.01'
+__version__ = u'4.20.02'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -1472,13 +1472,12 @@ def getTodriveParameters(i):
       i += 2
     else:
       break
+  if not todrive[u'user']:
+    todrive[u'user'] = _getAdminUserFromOAuth(API.FAM1_SCOPES)
   if todrive[u'parent'] == u'root':
     todrive[u'parentId'] = u'root'
   else:
-    if todrive['user']:
-      _, drive = buildDriveGAPIObject(todrive[u'user'])
-    else:
-      drive = buildGAPIObject(u'drive')
+    _, drive = buildDriveGAPIObject(todrive[u'user'])
     if todrive[u'parent'].startswith(u'id:'):
       try:
         result = callGAPI(drive.files(), u'get',
@@ -9759,10 +9758,7 @@ def writeCSVfile(csvRows, titles, list_type, todrive):
     if todrive[u'timestamp']:
       timestamp = datetime.datetime.now()+datetime.timedelta(days=-todrive[u'daysoffset'], hours=-todrive[u'hoursoffset'])
       title += u' - '+timestamp.isoformat()
-    if todrive['user']:
-      _, drive = buildDrive3GAPIObject(todrive[u'user'])
-    else:
-      _, drive = buildDrive3GAPIObject(_getAdminUserFromOAuth())
+    _, drive = buildDrive3GAPIObject(todrive[u'user'])
     body = {u'description': u' '.join(sys.argv),
             u'name': title,
             u'mimeType': mimeType,
