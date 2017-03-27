@@ -1473,7 +1473,7 @@ def getTodriveParameters(i):
     else:
       break
   if not todrive[u'user']:
-    todrive[u'user'] = _getAdminUserFromOAuth(API.FAM1_SCOPES)
+    todrive[u'user'] = _getAdminUserFromOAuth()
   if todrive[u'parent'] == u'root':
     todrive[u'parentId'] = u'root'
   else:
