@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.20.03'
+__version__ = u'4.20.04'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -3653,6 +3653,10 @@ def doCalendarShowACL():
     print u'Calendar: {0}, ACL: {1}{2}'.format(show_cal, formatACLRule(rule), currentCount(i, count))
 
 def doCalendarAddACL(calendarId=None, act_as=None, role=None, scope=None, entity=None):
+  if calendarId is None:
+    calendarId = sys.argv[2]
+  if calendarId.find(u'@') == -1:
+    calendarId = u'%s@%s' % (calendarId, GC_Values[GC_DOMAIN])
   if not act_as:
     act_as = calendarId
   _, cal = buildCalendarGAPIObject(act_as)
@@ -3663,10 +3667,6 @@ def doCalendarAddACL(calendarId=None, act_as=None, role=None, scope=None, entity
   except oauth2client.client.HttpAccessTokenRefreshError:
     _, cal = buildCalendarGAPIObject(_getAdminUserFromOAuth())
   body = {u'scope': {}}
-  if calendarId is None:
-    calendarId = sys.argv[2]
-  if calendarId.find(u'@') == -1:
-    calendarId = u'%s@%s' % (calendarId, GC_Values[GC_DOMAIN])
   if role is not None:
     body[u'role'] = role
   else:

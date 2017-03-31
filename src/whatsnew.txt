@@ -1,3 +1,7 @@
+4.20.04
+
+Fix bug in adding ACL to calendar.
+
 4.20.03
 
 When todrive is specified and nobrowser.txt is present, the email regarding the upload will be sent to the
