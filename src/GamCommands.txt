@@ -777,24 +777,27 @@ Prints a header row and selected fields for specified CrOS devices.
 
 The basic argument yields these column headers: deviceId,annotatedAssetId,annotatedLocation,annotatedUser,lastSync,notes,serialNumber,status
 The full argument yields all column headers including two headers, recentUsers and activeTimeRanges,
-that repeat with two subvalues each, yielding a large number of columns that make the output hard to process.
+that repeat with two/four subvalues each, yielding a large number of columns that make the output hard to process.
 The nolists argument suppresses these two headers; if you want these headers in a more manageable form use the following arguments.
-The listlimit <Number> argument limits the number of repetitions to <Number>. If <Number> equals zero, there is no limit.
+If recentusers is specified, for each recent user, the columns recentUsers.email and recentUsers.type are output on a separate row
+with all of the other headers.
+If timeranges is specified, for each time range entry, the columns activeTimeRanges.date, activeTimeRange.activeTime,
+activeTimeRanges.duration and activeTimeRanges.minutes are output on a separate row with all of the other headers.
+The listlimit <Number> argument limits the number of repetitions to <Number>; if not specified or <Number> equals zero, there is no limit.
 The start <Date> and end <Date> arguments filter the time ranges.
-If recentusers is specified as a field, each pair of values for recentUsers is put on a separate row with all of the other headers.
-If timeranges is specified as a field, each  pair of values for activeTimeRanges is put on a separate row with all of the other headers.
 
 gam print crosactivity [todrive [<ToDriveAttributes>]] [query <QueryCrOS>]
 	[recentusers] [timeranges] [both] [listlimit <Number>] [start <Date>] [end <Date>] [delimiter <String>] 
 
 The basic column headers are: deviceId,annotatedAssetId,annotatedLocation,serialNumber,orgUnitPath.
 If recentusers is specified, all of the recent users email addresses, separated by the delimiter <String>,
-are put on a separate row, with header recentUsers.email, in addition to the basic headers.
-If timeranges is specified, each pair of time range values, activeTimeRanges.date and activeTimeRanges.duration,
-are put on a separate row with the basic headers.
+with header recentUsers.email, are output with the basic headers.
+If timeranges is specified, for each time range entry, activeTimeRanges.date and activeTimeRanges.duration and activeTimeRanges.minutes,
+are output on a separate row with the basic headers.
 The default is to include both recentusers and timeranges.
-The listlimit <Number> argument limits the number of recent users and time ranges to <Number>. If <Number> equals zero, there is no limit.
+The listlimit <Number> argument limits the number of recent users and time ranges to <Number>; if not specified or <Number> equals zero, there is no limit.
 The start <Date> and end <Date> arguments filter the time ranges.
+Delimiter defaults to comma.
 
 gam update mobile <MobileItem> <MobileAttributes>+
 gam delete mobile <MobileItem>

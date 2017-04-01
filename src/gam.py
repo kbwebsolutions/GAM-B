@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.20.05'
+__version__ = u'4.21.00'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -9127,6 +9127,7 @@ def doGetCrosInfo():
           print u'    date: {0}'.format(activeTimeRange[u'date'])
           print u'      activeTime: {0}'.format(str(activeTimeRange[u'activeTime']))
           print u'      duration: {0}'.format(formatMilliSeconds(activeTimeRange[u'activeTime']))
+          print u'      minutes: {0}'.format(activeTimeRange[u'activeTime']/60000)
       recentUsers = cros.get(u'recentUsers', [])
       lenRU = len(recentUsers)
       if lenRU:
@@ -10558,7 +10559,7 @@ def doPrintCrosActivity():
   if u'recentUsers' in device_fields:
     titles.append(u'recentUsers.email')
   if u'activeTimeRanges' in device_fields:
-    titles.extend([u'activeTimeRanges.date', u'activeTimeRanges.duration'])
+    titles.extend([u'activeTimeRanges.date', u'activeTimeRanges.duration', u'activeTimeRanges.minutes'])
   fields = u'chromeosdevices(%s),nextPageToken' % u','.join(device_fields)
   sys.stderr.write(u'Retrieving All Chrome OS Devices for organization (may take some time for large accounts)...\n')
   page_message = u'Got %%num_items%% Chrome devices...\n'
@@ -10577,6 +10578,7 @@ def doPrintCrosActivity():
         new_row = row.copy()
         new_row[u'activeTimeRanges.date'] = activeTimeRange[u'date']
         new_row[u'activeTimeRanges.duration'] = formatMilliSeconds(activeTimeRange[u'activeTime'])
+        new_row[u'activeTimeRanges.minutes'] = activeTimeRange[u'activeTime']/60000
         csvRows.append(new_row)
     if u'recentUsers' in cros:
       recentUsers = []
@@ -10718,7 +10720,7 @@ def doPrintCrosDevices():
   else:
     if not noLists:
       if selectActiveTimeRanges:
-        titles.extend([u'activeTimeRanges.date', u'activeTimeRanges.activeTime', u'activeTimeRanges.duration'])
+        titles.extend([u'activeTimeRanges.date', u'activeTimeRanges.activeTime', u'activeTimeRanges.duration', u'activeTimeRanges.minutes'])
       if selectRecentUsers:
         titles.extend([u'recentUsers.email', u'recentUsers.type'])
     for cros in all_cros:
@@ -10730,7 +10732,7 @@ def doPrintCrosDevices():
           if attrib not in titles:
             titles.append(attrib)
           row[attrib] = cros[attrib]
-          activeTimeRanges = _filterTimeRanges(cros.get(u'activeTimeRanges', []), startDate, endDate) if selectActiveTimeRanges else []
+      activeTimeRanges = _filterTimeRanges(cros.get(u'activeTimeRanges', []), startDate, endDate) if selectActiveTimeRanges else []
       recentUsers = cros.get(u'recentUsers', []) if selectRecentUsers else []
       if noLists or (not activeTimeRanges and not recentUsers):
         csvRows.append(row)
@@ -10743,6 +10745,7 @@ def doPrintCrosDevices():
             new_row[u'activeTimeRanges.date'] = activeTimeRanges[i][u'date']
             new_row[u'activeTimeRanges.activeTime'] = str(activeTimeRanges[i][u'activeTime'])
             new_row[u'activeTimeRanges.duration'] = formatMilliSeconds(activeTimeRanges[i][u'activeTime'])
+            new_row[u'activeTimeRanges.minutes'] = activeTimeRanges[i][u'activeTime']/60000
           if i < lenRU:
             new_row[u'recentUsers.email'] = recentUsers[i].get(u'email', [u'Unknown', u'UnmanagedUser'][recentUsers[i][u'type'] == u'USER_TYPE_UNMANAGED'])
             new_row[u'recentUsers.type'] = recentUsers[i][u'type']
