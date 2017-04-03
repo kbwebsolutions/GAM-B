@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.21.00'
+__version__ = u'4.21.01'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -2716,6 +2716,8 @@ def doPrintCourses():
     jcount = len(participants)
     course[role] = jcount
     addTitlesToCSVfile([role], titles)
+    if countsOnly:
+      return
     j = 0
     for member in participants:
       memberTitles = []
@@ -2748,6 +2750,7 @@ def doPrintCourses():
   teacherId = None
   studentId = None
   showAliases = False
+  countsOnly = False
   delimiter = u' '
   showMembers = u''
   i = 3
@@ -2763,6 +2766,9 @@ def doPrintCourses():
       i, todrive = getTodriveParameters(i)
     elif myarg in [u'alias', u'aliases']:
       showAliases = True
+      i += 1
+    elif myarg == u'countsonly':
+      countsOnly = True
       i += 1
     elif myarg == u'delimiter':
       delimiter = sys.argv[i+1]
@@ -2795,6 +2801,13 @@ def doPrintCourses():
   if showAliases or showMembers:
     if showAliases:
       titles.append(u'Aliases')
+    if showMembers:
+      if countsOnly:
+        teachersFields = u'nextPageToken,teachers(profile(id))'
+        studentsFields = u'nextPageToken,students(profile(id))'
+      else:
+        teachersFields = u'nextPageToken,teachers(profile)'
+        studentsFields = u'nextPageToken,students(profile)'
     i = 0
     count = len(csvRows)
     for course in csvRows:
@@ -2811,13 +2824,13 @@ def doPrintCourses():
           teacher_message = u' got %%%%num_items%%%% teachers for course %s%s' % (courseId, currentCount(i, count))
           results = callGAPIpages(croom.courses().teachers(), u'list', u'teachers',
                                   page_message=teacher_message,
-                                  courseId=courseId, fields=u'nextPageToken,teachers(profile)')
+                                  courseId=courseId, fields=teachersFields)
           _saveParticipants(course, results, u'teachers')
         if showMembers != u'teachers':
           student_message = u' got %%%%num_items%%%% students for course %s%s' % (courseId, currentCount(i, count))
           results = callGAPIpages(croom.courses().students(), u'list', u'students',
                                   page_message=student_message,
-                                  courseId=courseId, fields=u'nextPageToken,students(profile)')
+                                  courseId=courseId, fields=studentsFields)
           _saveParticipants(course, results, u'students')
   sortCSVTitles([u'id', u'name'], titles)
   writeCSVfile(csvRows, titles, u'Courses', todrive)
@@ -2984,6 +2997,9 @@ def doPrintPrintJobs():
                       owner=owner, offset=offset, limit=limit)
     checkCloudPrintResult(result)
     newJobs = result[u'range'][u'jobsCount']
+    totalJobs = int(result[u'range'][u'jobsTotal'])
+    if GC_Values[GC_DEBUG_LEVEL] > 0:
+      sys.stderr.write(u'Debug: jobCount: {0}, jobLimit: {1}, jobsCount: {2}, jobsTotal: {3}\n'.format(jobCount, jobLimit, newJobs, totalJobs))
     if newJobs == 0:
       break
     jobCount += newJobs
@@ -3000,6 +3016,8 @@ def doPrintPrintJobs():
       job[u'updateTime'] = datetime.datetime.fromtimestamp(updateTime).strftime(u'%Y-%m-%d %H:%M:%S')
       job[u'tags'] = u' '.join(job[u'tags'])
       addRowTitlesToCSVfile(flatten_json(job), csvRows, titles)
+    if jobCount >= totalJobs:
+      break
   writeCSVfile(csvRows, titles, u'Print Jobs', todrive)
 
 def doPrintPrinters():

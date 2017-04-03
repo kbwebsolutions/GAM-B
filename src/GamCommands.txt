@@ -867,7 +867,7 @@ gam update course <CourseID> <CourseAttributes>+
 gam delete course <CourseID>
 gam info course <CourseID>
 gam print courses [todrive [<ToDriveAttributes>]] [teacher <UserItem>] [student <UserItem>] [alias|aliases] [delimiter <String>]
-	[show all|students|teachers] [fields <CourseFieldNameList>] [skipfields <CourseFieldNameList>]
+	[show all|students|teachers] [countsonly] [fields <CourseFieldNameList>] [skipfields <CourseFieldNameList>]
 
 gam course <CourseID> add alias <CourseAlias>
 gam course <CourseID> delete alias <CourseAlias>
