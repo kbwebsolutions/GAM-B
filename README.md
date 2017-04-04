@@ -27,13 +27,17 @@ c) Source, all platforms - *.zip, *.gz
 Installation - New Users
 ------------------------
 Enter the following gam commands and follow instructions to create the necessary authorizations.
-- Build GAM Project for authorization: ```gam create project```
-- Authorize Gam Client: ```gam oauth create```
-- Authorize Service Account: ```gam user <admin email address> check serviceaccount```
+- Build GAM Project for authorization: `gam create project`
+- Authorize Gam Client: `gam oauth create`
+- Authorize Service Account: `gam user <admin email address> check serviceaccount`
 
 Installation - Upgrading from a prior version of GAM.
 ----------------------------------------------------------------------------------
 Copy your existing client_secrets.json/oauth2.txt/oauth2service.json files to the install directory.
+If you want additional licensing information from `gam info domain`, perform the following commands
+to add an additional scope to oauth2.txt.
+- `gam oauth delete`
+- `gam oauth create`
 
 Mailing List / Discussion group
 -------------------------------
