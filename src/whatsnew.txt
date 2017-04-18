@@ -1,3 +1,11 @@
+4.22.01
+
+Fix gam calendar commands to properly establish domain.
+
+4.22.00
+
+Validate client id and secret from user input (reduces user errors on create project)
+
 4.21.04
 
 Handle additional OAuth error.

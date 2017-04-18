@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.21.04'
+__version__ = u'4.22.01'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -356,7 +356,6 @@ OAUTH2_TOKEN_ERRORS = [
   u'access_denied',
   u'access_denied: Requested client not authorized',
   u'internal_failure: Backend Error',
-  u'invalid_grant',
   u'invalid_grant: Bad Request',
   u'invalid_grant: Invalid email or User ID',
   u'invalid_grant: Not a valid email',
@@ -1374,6 +1373,8 @@ def buildActivityGAPIObject(user):
   return (userEmail, buildGAPIServiceObject(u'appsactivity', userEmail))
 
 def buildCalendarGAPIObject(calname):
+  if not GC_Values[GC_DOMAIN]:
+    _getDomainFromOAuth()
   calendarId = convertUserUIDtoEmailAddress(calname)
   return (calendarId, buildGAPIServiceObject(u'calendar', calendarId))
 
@@ -3691,22 +3692,23 @@ def formatACLRule(rule):
   return u'(Scope: {0}, Role: {1})'.format(rule[u'scope'][u'type'], rule[u'role'])
 
 def doCalendarShowACL():
-  show_cal = sys.argv[2]
-  show_cal, cal = buildCalendarGAPIObject(show_cal)
+  calendarId, cal = buildCalendarGAPIObject(sys.argv[2])
   try:
     # Force service account token request. If we fail fall back to
     # using admin for delegation
     cal._http.request.credentials.refresh(httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL]))
   except oauth2client.client.HttpAccessTokenRefreshError:
     _, cal = buildCalendarGAPIObject(_getAdminUserFromOAuth())
-  acls = callGAPIitems(cal.acl(), u'list', u'items', calendarId=show_cal)
+  acls = callGAPIitems(cal.acl(), u'list', u'items', calendarId=calendarId)
   i = 0
   count = len(acls)
   for rule in acls:
     i += 1
-    print u'Calendar: {0}, ACL: {1}{2}'.format(show_cal, formatACLRule(rule), currentCount(i, count))
+    print u'Calendar: {0}, ACL: {1}{2}'.format(calendarId, formatACLRule(rule), currentCount(i, count))
 
 def doCalendarAddACL(calendarId=None, act_as=None, role=None, scope=None, entity=None):
+  if not GC_Values[GC_DOMAIN]:
+    _getDomainFromOAuth()
   if calendarId is None:
     calendarId = sys.argv[2]
   if calendarId.find(u'@') == -1:
@@ -7616,10 +7618,44 @@ def doDelProjects(login_hint=None):
         pass
 
 def doCreateProject(login_hint=None):
+
+  def _checkClientAndSecret(simplehttp, client_id, client_secret):
+    url = u'https://www.googleapis.com/oauth2/v4/token'
+    post_data = {u'client_id': client_id, u'client_secret': client_secret,
+                 u'code': u'ThisIsAnInvalidCodeOnlyBeingUsedToTestIfClientAndSecretAreValid',
+                 u'redirect_uri': u'urn:ietf:wg:oauth:2.0:oob', u'grant_type': u'authorization_code'}
+    headers = {'Content-type': 'application/x-www-form-urlencoded'}
+    from urllib import urlencode
+    resp, content = simplehttp.request(url, u'POST', urlencode(post_data), headers=headers)
+    try:
+      content = json.loads(content)
+    except ValueError:
+      print u'Unknown error: %s' % content
+      return False
+    if not u'error' in content or not u'error_description' in content:
+      print u'Unknown error: %s' % content
+      return False
+    if content[u'error'] == u'invalid_grant':
+      return True
+    if content[u'error_description'] == u'The OAuth client was not found.':
+      print u'Ooops!!\n\n%s\n\nIs not a valid client ID. Please make sure you are following the directions exactly and that there are no extra spaces in your client ID.' % client_id
+      return False
+    if content[u'error_description'] == u'Unauthorized':
+      print u'Ooops!!\n\n%s\n\nIs not a valid client secret. Please make sure you are following the directions exactly and that there are no extra spaces in your client secret.' % client_secret
+      return False
+    print u'Unknown error: %s' % content
+    return False
+
+  service_account_file = GC_Values[GC_OAUTH2SERVICE_JSON]
+  client_secrets_file = GC_Values[GC_CLIENT_SECRETS_JSON]
+  for a_file in [service_account_file, client_secrets_file]:
+    if os.path.exists(a_file):
+      print u'ERROR: %s already exists. Please delete or rename it before attempting to create another project.' % a_file
+      sys.exit(5)
   crm, http = getCRMService(login_hint)
   project_id = u'gam-project'
   for i in range(3):
-    project_id += u'-%s' % ''.join(random.choice(string.digits + string.ascii_lowercase) for i in range(3))
+    project_id += u'-%s' % ''.join(random.choice(string.digits+string.ascii_lowercase) for i in range(3))
   project_name = u'project:%s' % project_id
   body = {u'projectId': project_id, u'name': u'GAM Project'}
   while True:
@@ -7646,7 +7682,7 @@ and accept the Terms of Service (ToS). As soon as you've accepted the ToS popup,
           pass
         print status
         sys.exit(1)
-      if u'done' in status and status[u'done']:
+      if status.get(u'done', False):
         break
       sleep_time = i ** 2
       print u'Project still being created. Sleeping %s seconds' % sleep_time
@@ -7660,8 +7696,8 @@ and accept the Terms of Service (ToS). As soon as you've accepted the ToS popup,
       print status[u'error']
       sys.exit(2)
     break
-
-  _, c = httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL]).request(GAM_PROJECT_APIS, u'GET')
+  simplehttp = httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL])
+  _, c = simplehttp.request(GAM_PROJECT_APIS, u'GET')
   apis = c.splitlines()
   serveman = googleapiclient.discovery.build(u'servicemanagement', u'v1', http=http, cache_discovery=False)
   for api in apis:
@@ -7686,12 +7722,10 @@ and accept the Terms of Service (ToS). As soon as you've accepted the ToS popup,
   body = {u'privateKeyType': u'TYPE_GOOGLE_CREDENTIALS_FILE', u'keyAlgorithm': u'KEY_ALG_RSA_2048'}
   key = callGAPI(iam.projects().serviceAccounts().keys(), u'create', name=service_account[u'name'], body=body)
   oauth2service_data = base64.b64decode(key[u'privateKeyData'])
-  service_account_file = GC_Values[GC_OAUTH2SERVICE_JSON]
-  if os.path.isfile(service_account_file):
-    service_account_file = u'%s-%s' % (service_account_file, project_id)
   writeFile(service_account_file, oauth2service_data, continueOnError=False)
   console_credentials_url = u'https://console.developers.google.com/apis/credentials?project=%s' % project_id
-  print u'''Please go to:
+  while True:
+    print u'''Please go to:
 
 %s
 
@@ -7702,9 +7736,13 @@ and accept the Terms of Service (ToS). As soon as you've accepted the ToS popup,
 4. Copy your "client ID" value.
 
 ''' % console_credentials_url
-  client_id = raw_input(u'Enter your Client ID: ')
-  print u'\nNow go back to your browser and copy your client secret.'
-  client_secret = raw_input(u'Enter your Client Secret: ')
+    client_id = raw_input(u'Enter your Client ID: ').strip()
+    print u'\nNow go back to your browser and copy your client secret.'
+    client_secret = raw_input(u'Enter your Client Secret: ').strip()
+    client_valid = _checkClientAndSecret(simplehttp, client_id, client_secret)
+    if client_valid:
+      break
+    print
   cs_data = u'''{
     "installed": {
         "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
@@ -7719,9 +7757,6 @@ and accept the Terms of Service (ToS). As soon as you've accepted the ToS popup,
         "token_uri": "https://accounts.google.com/o/oauth2/token"
     }
 }''' % (client_id, client_secret, project_id)
-  client_secrets_file = GC_Values[GC_CLIENT_SECRETS_JSON]
-  if os.path.isfile(client_secrets_file):
-    client_secrets_file = u'%s-%s' % (client_secrets_file, project_id)
   writeFile(client_secrets_file, cs_data, continueOnError=False)
   print u'''Almost there! Now please switch back to your browser and:
 
@@ -8669,6 +8704,13 @@ def _getAdminUserFromOAuth():
     doRequestOAuth()
     credentials = storage.get()
   return credentials.id_token.get(u'email', u'Unknown')
+
+def _getDomainFromOAuth():
+  storage, credentials = getOauth2TxtStorageCredentials()
+  if credentials is None or credentials.invalid:
+    doRequestOAuth()
+    credentials = storage.get()
+  GC_Values[GC_DOMAIN] = credentials.id_token.get(u'hd', u'UNKNOWN').lower()
 
 def doGetUserInfo(user_email=None):
 
