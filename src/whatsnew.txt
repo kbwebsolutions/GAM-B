@@ -1,3 +1,7 @@
+4.22.02
+
+Improve Unicode character handling for gam csv and Windows.
+
 4.22.01
 
 Fix gam calendar commands to properly establish domain.

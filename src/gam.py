@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.22.01'
+__version__ = u'4.22.02'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -2915,7 +2915,7 @@ PRINTJOB_DESCENDINGORDER_MAP = {
   u'TITLE': u'TITLE_DESC',
   }
 
-PRINTJOBS_DEFAULT_JOB_LIMIT = 25
+PRINTJOBS_DEFAULT_JOB_LIMIT = 0
 PRINTJOBS_DEFAULT_MAX_RESULTS = 100
 
 def doPrintPrintJobs():
@@ -11488,7 +11488,7 @@ def getSubFields(i, fieldNames):
       else:
         csvFieldErrorExit(fieldName, fieldNames)
     else:
-      GAM_argv.append(myarg.encode(GM_Globals[GM_SYS_ENCODING]))
+      GAM_argv.append(myarg)
     GAM_argvI += 1
     i += 1
   return(GAM_argv, subFields)
@@ -11505,7 +11505,6 @@ def processSubFields(GAM_argv, row, subFields):
         argv[GAM_argvI] += row[field[0]]
       pos = field[2]
     argv[GAM_argvI] += oargv[pos:]
-    argv[GAM_argvI] = argv[GAM_argvI].encode(GM_Globals[GM_SYS_ENCODING])
   return argv
 
 def runCmdForUsers(cmd, users, **kwargs):
@@ -11555,7 +11554,7 @@ def ProcessGAMCommand(args):
           if (not cmd) or cmd.startswith(u'#') or ((len(argv) == 1) and (cmd != u'commit-batch')):
             continue
           if cmd == u'gam':
-            items.append([arg.encode(GM_Globals[GM_SYS_ENCODING]) for arg in argv])
+            items.append(argv)
           elif cmd == u'commit-batch':
             items.append([cmd])
           else:
