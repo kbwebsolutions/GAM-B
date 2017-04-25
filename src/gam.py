@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.22.02'
+__version__ = u'4.22.03'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -210,6 +210,8 @@ GC_DRIVE_MAX_RESULTS = u'drive_max_results'
 GC_EXTRA_ARGS = u'extra_args'
 # When retrieving lists of Google Group members from API, how many should be retrieved in each chunk
 GC_MEMBER_MAX_RESULTS = u'member_max_results'
+# Value to substitute for NEVER_TIME
+GC_NEVER_TIME = u'never_time'
 # If no_browser is False, writeCSVfile won't open a browser when todrive is set
 # and doRequestOAuth prints a link and waits for the verification code when oauth2.txt is being created
 GC_NO_BROWSER = u'no_browser'
@@ -246,6 +248,7 @@ GC_Defaults = {
   GC_DRIVE_MAX_RESULTS: 1000,
   GC_EXTRA_ARGS: u'',
   GC_MEMBER_MAX_RESULTS: 200,
+  GC_NEVER_TIME: u'Never',
   GC_NO_BROWSER: False,
   GC_NO_CACHE: False,
   GC_NO_UPDATE_CHECK: False,
@@ -290,6 +293,7 @@ GC_VAR_INFO = {
   GC_DRIVE_MAX_RESULTS: {GC_VAR_TYPE: GC_TYPE_INTEGER, GC_VAR_ENVVAR: u'GAM_DRIVE_MAX_RESULTS', GC_VAR_LIMITS: (1, 1000)},
   GC_EXTRA_ARGS: {GC_VAR_TYPE: GC_TYPE_FILE, GC_VAR_SIGFILE: FN_EXTRA_ARGS_TXT, GC_VAR_SFFT: (u'', FN_EXTRA_ARGS_TXT)},
   GC_MEMBER_MAX_RESULTS: {GC_VAR_TYPE: GC_TYPE_INTEGER, GC_VAR_ENVVAR: u'GAM_MEMBER_MAX_RESULTS', GC_VAR_LIMITS: (1, 10000)},
+  GC_NEVER_TIME: {GC_VAR_TYPE: GC_TYPE_STRING, GC_VAR_ENVVAR: u'GAM_NEVERTIME'},
   GC_NO_BROWSER: {GC_VAR_TYPE: GC_TYPE_BOOLEAN, GC_VAR_SIGFILE: u'nobrowser.txt', GC_VAR_SFFT: (False, True)},
   GC_NO_CACHE: {GC_VAR_TYPE: GC_TYPE_BOOLEAN, GC_VAR_SIGFILE: u'nocache.txt', GC_VAR_SFFT: (False, True)},
   GC_NO_UPDATE_CHECK: {GC_VAR_TYPE: GC_TYPE_BOOLEAN, GC_VAR_SIGFILE: u'noupdatecheck.txt', GC_VAR_SFFT: (False, True)},
@@ -8802,7 +8806,7 @@ def doGetUserInfo(user_email=None):
     print u'Creation Time: %s' % user[u'creationTime']
   if u'lastLoginTime' in user:
     if user[u'lastLoginTime'] == NEVER_TIME:
-      print u'Last login time: Never'
+      print u'Last login time: %s' % GC_Values[GC_NEVER_TIME]
     else:
       print u'Last login time: %s' % user[u'lastLoginTime']
   if u'orgUnitPath' in user:
@@ -9723,7 +9727,7 @@ def doUndeleteUser():
         for attr_name in [u'creationTime', u'lastLoginTime', u'deletionTime']:
           try:
             if matching_user[attr_name] == NEVER_TIME:
-              matching_user[attr_name] = u'Never'
+              matching_user[attr_name] = GC_Values[GC_NEVER_TIME]
             print u'   %s: %s ' % (attr_name, matching_user[attr_name])
           except KeyError:
             pass
@@ -9909,7 +9913,7 @@ def flatten_json(structure, key=u'', path=u'', flattened=None, listLimit=None):
       if new_key in [u'kind', u'etag']:
         continue
       if value == NEVER_TIME:
-        value = u'Never'
+        value = GC_Values[GC_NEVER_TIME]
       flatten_json(value, new_key, u'.'.join([item for item in [path, key] if item]), flattened=flattened, listLimit=listLimit)
   return flattened
 

@@ -1,3 +1,11 @@
+4.22.03
+
+Added environment variable GAM_NEVERTIME which will set the value to be used whenever a Google datetime variable has the value "1970-01-01T00:00:00.000Z".
+Gam has always substituted "Never" for "1970-01-01T00:00:00.000Z" but now you can specifiy whatever value you want substituted.
+To keep the Google value: export GAM_NEVERTIME=1970-01-01T00:00:00.000Z
+To use some other date/time value: export GAM_NEVERTIME=1999-12-31T23:59:59.999Z
+To use some distinguished value: export GAM_NEVERTIME=0
+
 4.22.02
 
 Improve Unicode character handling for gam csv and Windows.
