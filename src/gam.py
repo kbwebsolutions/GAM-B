@@ -11575,7 +11575,7 @@ def ProcessGAMCommand(args):
       i = 2
       filename = sys.argv[i]
       i, encoding = getCharSet(i+1)
-      f = openFile(filename)
+      f = openFile(filename, mode=u'rb')
       csvFile = UnicodeDictReader(f, encoding=encoding)
       if (i == len(sys.argv)) or (sys.argv[i].lower() != u'gam') or (i+1 == len(sys.argv)):
         print u'ERROR: "gam csv <filename>" must be followed by a full GAM command...'
