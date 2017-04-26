@@ -1,3 +1,12 @@
+4.22.04
+
+Added charset option to file option of note option of user attributes
+    <UserAttributes> ::=
+	...
+	(note|notes clear|([text_plain|text_html] <String>|(file <FileName> [charset <Charset>])))|
+	...
+    gam update user testuser@domain.com notes file testusernotes.txt charset UTF-8
+
 4.22.03
 
 Added environment variable GAM_NEVERTIME which will set the value to be used whenever a Google datetime variable has the value "1970-01-01T00:00:00.000Z".

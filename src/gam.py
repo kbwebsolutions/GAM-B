@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.22.03'
+__version__ = u'4.22.04'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -1378,7 +1378,7 @@ def buildActivityGAPIObject(user):
 
 def buildCalendarGAPIObject(calname):
   if not GC_Values[GC_DOMAIN]:
-    _getDomainFromOAuth()
+    GC_Values[GC_DOMAIN] = _getValueFromOAuth(u'hd').lower()
   calendarId = convertUserUIDtoEmailAddress(calname)
   return (calendarId, buildGAPIServiceObject(u'calendar', calendarId))
 
@@ -1487,7 +1487,7 @@ def getTodriveParameters(i):
     else:
       break
   if not todrive[u'user']:
-    todrive[u'user'] = _getAdminUserFromOAuth()
+    todrive[u'user'] = _getAdminUserFromOAuth(u'email')
   if todrive[u'parent'] == u'root':
     todrive[u'parentId'] = u'root'
   else:
@@ -3702,7 +3702,7 @@ def doCalendarShowACL():
     # using admin for delegation
     cal._http.request.credentials.refresh(httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL]))
   except oauth2client.client.HttpAccessTokenRefreshError:
-    _, cal = buildCalendarGAPIObject(_getAdminUserFromOAuth())
+    _, cal = buildCalendarGAPIObject(_getValueFromOAuth(u'email'))
   acls = callGAPIitems(cal.acl(), u'list', u'items', calendarId=calendarId)
   i = 0
   count = len(acls)
@@ -3712,7 +3712,7 @@ def doCalendarShowACL():
 
 def doCalendarAddACL(calendarId=None, act_as=None, role=None, scope=None, entity=None):
   if not GC_Values[GC_DOMAIN]:
-    _getDomainFromOAuth()
+    GC_Values[GC_DOMAIN] = _getValueFromOAuth(u'hd').lower()
   if calendarId is None:
     calendarId = sys.argv[2]
   if calendarId.find(u'@') == -1:
@@ -3725,7 +3725,7 @@ def doCalendarAddACL(calendarId=None, act_as=None, role=None, scope=None, entity
     # using admin for delegation
     cal._http.request.credentials.refresh(httplib2.Http(disable_ssl_certificate_validation=GC_Values[GC_NO_VERIFY_SSL]))
   except oauth2client.client.HttpAccessTokenRefreshError:
-    _, cal = buildCalendarGAPIObject(_getAdminUserFromOAuth())
+    _, cal = buildCalendarGAPIObject(_getValueFromOAuth(u'email'))
   body = {u'scope': {}}
   if role is not None:
     body[u'role'] = role
@@ -4273,10 +4273,9 @@ def getPermissionId(argstr):
     return u'anyoneWithLink'
   if permissionId.find(u'@') == -1:
     permissionId = u'%s@%s' % (permissionId, GC_Values[GC_DOMAIN])
-  admin_email = _getAdminUserFromOAuth()
   # We have to use v2 here since v3 has no permissions.getIdForEmail equivalent
   # https://code.google.com/a/google.com/p/apps-api-issues/issues/detail?id=4313
-  _, drive2 = buildDriveGAPIObject(admin_email)
+  _, drive2 = buildDriveGAPIObject(_getValueFromOAuth(u'email'))
   return callGAPI(drive2.permissions(), u'getIdForEmail', email=permissionId, fields=u'id')[u'id']
 
 def delDriveFileACL(users):
@@ -7510,12 +7509,13 @@ def getUserAttributes(i, cd, updateCmd=False):
         note[u'contentType'] = sys.argv[i].lower()
         i += 1
       if sys.argv[i].lower() == u'file':
-        i += 1
-        note[u'value'] = readFile(sys.argv[i], encoding=GM_Globals[GM_SYS_ENCODING])
+        filename = sys.argv[i+1]
+        i, encoding = getCharSet(i+2)
+        note[u'value'] = readFile(filename, encoding=encoding)
       else:
         note[u'value'] = sys.argv[i].replace(u'\\n', u'\n')
+        i += 1
       body[u'notes'] = note
-      i += 1
     elif myarg == u'clearschema':
       if not updateCmd:
         print u'ERROR: %s is not a valid create user argument.' % sys.argv[i]
@@ -8702,19 +8702,12 @@ def doCreateResoldCustomer():
   result = callGAPI(res.customers(), u'insert', body=body, customerAuthToken=customerAuthToken, fields=u'customerId,customerDomain')
   print u'Created customer %s with id %s' % (result[u'customerDomain'], result[u'customerId'])
 
-def _getAdminUserFromOAuth():
+def _getValueFromOAuth(field):
   storage, credentials = getOauth2TxtStorageCredentials()
   if credentials is None or credentials.invalid:
     doRequestOAuth()
     credentials = storage.get()
-  return credentials.id_token.get(u'email', u'Unknown')
-
-def _getDomainFromOAuth():
-  storage, credentials = getOauth2TxtStorageCredentials()
-  if credentials is None or credentials.invalid:
-    doRequestOAuth()
-    credentials = storage.get()
-  GC_Values[GC_DOMAIN] = credentials.id_token.get(u'hd', u'UNKNOWN').lower()
+  return credentials.id_token.get(field, u'Unknown')
 
 def doGetUserInfo(user_email=None):
 
@@ -8729,7 +8722,7 @@ def doGetUserInfo(user_email=None):
       user_email = sys.argv[3]
       i = 4
     else:
-      user_email = _getAdminUserFromOAuth()
+      user_email = _getValueFromOAuth(u'email')
   if user_email[:4].lower() == u'uid:':
     user_email = user_email[4:]
   elif user_email.find(u'@') == -1:
@@ -9792,7 +9785,7 @@ def doDeleteOrg():
 # Send an email
 def send_email(msg_subj, msg_txt, msg_rcpt):
   from email.mime.text import MIMEText
-  userId, gmail = buildGmailGAPIObject(_getAdminUserFromOAuth())
+  userId, gmail = buildGmailGAPIObject(_getValueFromOAuth(u'email'))
   msg = MIMEText(msg_txt)
   msg[u'Subject'] = msg_subj
   msg[u'From'] = userId
