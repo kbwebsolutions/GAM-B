@@ -1,3 +1,7 @@
+4.22.05
+
+Fix bug in getTodriveParameters.
+
 4.22.04
 
 Added charset option to file option of note option of user attributes

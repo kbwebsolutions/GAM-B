@@ -23,7 +23,7 @@ For more information, see https://github.com/taers232c/GAM-B
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.22.04'
+__version__ = u'4.22.05'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import sys
@@ -1487,7 +1487,7 @@ def getTodriveParameters(i):
     else:
       break
   if not todrive[u'user']:
-    todrive[u'user'] = _getAdminUserFromOAuth(u'email')
+    todrive[u'user'] = _getValueFromOAuth(u'email')
   if todrive[u'parent'] == u'root':
     todrive[u'parentId'] = u'root'
   else:
